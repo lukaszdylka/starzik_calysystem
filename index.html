@@ -1,0 +1,2407 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panel Sterowania - Pokój Zagadek</title>
+<style>
+* {
+margin: 0;
+padding: 0;
+box-sizing: border-box;
+}
+body {
+font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+background: #1a1a1a;
+min-height: 100vh;
+color: #e0e0e0;
+}
+.container {
+max-width: 1200px;
+margin: 0 auto;
+padding: 20px;
+}
+.header {
+text-align: center;
+color: #e0e0e0;
+margin-bottom: 30px;
+}
+.header h1 {
+font-size: 2.5em;
+text-shadow: none;
+margin-bottom: 10px;
+color: #ab0911;
+}
+.main-panel {
+display: grid;
+grid-template-columns: 1fr 1fr;
+gap: 20px;
+margin-bottom: 20px;
+}
+.card {
+background: #2a2a2a;
+border: 1px solid #404040;
+border-radius: 8px;
+padding: 25px;
+box-shadow: none;
+}
+.card h2 {
+margin-bottom: 20px;
+color: #e0e0e0;
+border-bottom: 1px solid #404040;
+padding-bottom: 10px;
+font-size: 1.2em;
+}
+.form-group {
+margin-bottom: 15px;
+}
+.form-group label {
+display: block;
+margin-bottom: 5px;
+font-weight: 500;
+color: #b0b0b0;
+}
+.form-group input, .form-group textarea, .form-group select {
+width: 100%;
+padding: 12px;
+border: 1px solid #404040;
+border-radius: 4px;
+font-size: 16px;
+background: #333;
+color: #e0e0e0;
+transition: border-color 0.3s;
+}
+.form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+outline: none;
+border-color: #ab0911;
+box-shadow: none;
+}
+.checkbox-group {
+display: flex;
+align-items: center;
+gap: 10px;
+margin: 15px 0;
+}
+.checkbox-group input[type="checkbox"] {
+width: auto;
+transform: scale(1.2);
+}
+.btn {
+padding: 10px 20px;
+border: none;
+border-radius: 4px;
+font-size: 14px;
+font-weight: 500;
+cursor: pointer;
+transition: all 0.2s;
+margin: 5px;
+}
+.btn-primary {
+background: #ab0911;
+color: white;
+}
+.btn-success {
+background: #4a5a4a;
+color: white;
+}
+.btn-warning {
+background: #6b5a2d;
+color: white;
+}
+.btn-danger {
+background: #5a3030;
+color: white;
+}
+.btn:hover {
+opacity: 0.9;
+transform: none;
+box-shadow: none;
+}
+.btn:disabled {
+opacity: 0.6;
+cursor: not-allowed;
+transform: none;
+}
+.game-status {
+text-align: center;
+padding: 15px;
+border-radius: 4px;
+margin: 15px 0;
+font-weight: 500;
+font-size: 16px;
+border: 1px solid #404040;
+}
+.status-waiting {
+background: #333;
+color: #b0b0b0;
+}
+.status-active {
+background: #2a3f2a;
+color: #90c090;
+border-color: #4a5a4a;
+}
+.status-paused {
+background: #3f3a2a;
+color: #c0a090;
+border-color: #6b5a2d;
+}
+.timer {
+font-size: 2.8em;
+font-weight: bold;
+text-align: center;
+margin: 15px 0;
+color: #e0e0e0;
+}
+.hint-request {
+background: #4a2a2a;
+color: #e0b0b0;
+padding: 15px;
+border: 1px solid #ab0911;
+border-radius: 4px;
+margin: 10px 0;
+text-align: center;
+font-weight: 500;
+font-size: 16px;
+animation: pulse 1.5s infinite;
+}
+@keyframes pulse {
+0%, 100% { opacity: 1; }
+50% { opacity: 0.7; }
+}
+.hint-panel {
+grid-column: 1 / -1;
+}
+.audio-controls {
+display: grid;
+grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+gap: 15px;
+margin: 20px 0;
+padding: 20px;
+border: 2px solid #404040;
+border-radius: 8px;
+background: #2a2a2a;
+}
+.audio-control-item {
+text-align: center;
+}
+.audio-control-item label {
+display: block;
+margin-bottom: 10px;
+font-weight: bold;
+color: #e0e0e0;
+}
+.audio-btn {
+width: 100%;
+padding: 15px;
+font-size: 16px;
+border-radius: 8px;
+border: none;
+cursor: pointer;
+transition: all 0.3s;
+margin: 5px 0;
+}
+.audio-btn-primary {
+background: #ab0911;
+color: white;
+}
+.audio-btn-success {
+background: #4a5a4a;
+color: white;
+}
+.audio-btn-danger {
+background: #5a3030;
+color: white;
+}
+.audio-btn:hover {
+opacity: 0.8;
+transform: translateY(-2px);
+}
+.logs-panel {
+grid-column: 1 / -1;
+max-height: 300px;
+overflow-y: auto;
+}
+.log-entry {
+padding: 10px;
+margin: 5px 0;
+border-radius: 4px;
+border-left: 3px solid #404040;
+background: #333;
+font-family: monospace;
+font-size: 13px;
+color: #b0b0b0;
+}
+.log-game {
+border-left-color: #4a5a4a;
+}
+.log-hint {
+border-left-color: #6b5a2d;
+}
+.log-error {
+border-left-color: #ab0911;
+}
+.log-esp32 {
+border-left-color: #0066cc;
+}
+.connection-status {
+position: fixed;
+top: 20px;
+right: 20px;
+padding: 10px 15px;
+border-radius: 20px;
+color: white;
+font-weight: bold;
+z-index: 1000;
+}
+.connected {
+background: #4a5a4a;
+}
+.connecting {
+background: #6b5a2d;
+}
+.disconnected {
+background: #ab0911;
+}
+.device-status {
+padding: 10px;
+border-radius: 4px;
+margin: 5px 0;
+text-align: center;
+font-weight: bold;
+}
+.device-online {
+background: #2a3f2a;
+color: #90c090;
+}
+.device-offline {
+background: #4a2a2a;
+color: #e0b0b0;
+}
+.game-history-item {
+background: #333;
+border: 1px solid #404040;
+border-radius: 4px;
+padding: 15px;
+margin-bottom: 10px;
+transition: background-color 0.2s;
+}
+.game-history-item:hover {
+background: #3a3a3a;
+}
+.game-header {
+display: flex;
+justify-content: space-between;
+align-items: center;
+margin-bottom: 10px;
+}
+.game-title {
+font-size: 1.1em;
+font-weight: bold;
+color: #e0e0e0;
+}
+.game-date {
+color: #b0b0b0;
+font-size: 0.9em;
+}
+.game-details {
+display: grid;
+grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+gap: 10px;
+margin-bottom: 10px;
+}
+.game-detail {
+color: #b0b0b0;
+font-size: 0.9em;
+}
+.game-status-badge {
+padding: 4px 8px;
+border-radius: 12px;
+font-size: 0.8em;
+font-weight: bold;
+}
+.status-completed {
+background: #4a5a4a;
+color: #90c090;
+}
+.status-failed {
+background: #5a3030;
+color: #c09090;
+}
+.status-test {
+background: #3f3a2a;
+color: #c0a090;
+}
+.stats-grid {
+display: grid;
+grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+gap: 15px;
+}
+.stat-item {
+text-align: center;
+padding: 10px;
+background: #2a2a2a;
+border-radius: 4px;
+}
+.stat-value {
+font-size: 1.5em;
+font-weight: bold;
+color: #ab0911;
+}
+.stat-label {
+color: #b0b0b0;
+font-size: 0.9em;
+}
+.notification {
+position: fixed;
+top: 70px;
+right: 20px;
+padding: 15px 20px;
+border-radius: 4px;
+color: white;
+font-weight: bold;
+z-index: 1000;
+transform: translateX(400px);
+transition: transform 0.3s ease;
+}
+.notification.show {
+transform: translateX(0);
+}
+.notification-success {
+background: #4a5a4a;
+}
+.notification-error {
+background: #ab0911;
+}
+.notification-warning {
+background: #6b5a2d;
+}
+.wifi-info {
+background: #2a2a3a;
+border: 1px solid #404040;
+border-radius: 4px;
+padding: 15px;
+margin-bottom: 15px;
+font-family: monospace;
+font-size: 14px;
+}
+.pricing-calculator {
+background: #2a2a2a;
+border: 1px solid #404040;
+border-radius: 8px;
+padding: 25px;
+margin-bottom: 20px;
+}
+.pricing-row {
+display: grid;
+grid-template-columns: 1fr 1fr;
+gap: 20px;
+margin-bottom: 15px;
+align-items: center;
+}
+.radio-group {
+display: flex;
+gap: 20px;
+align-items: center;
+}
+.radio-group input[type="radio"] {
+width: auto;
+transform: scale(1.2);
+}
+.pricing-result {
+background: #1a3a1a;
+border: 2px solid #4a5a4a;
+border-radius: 8px;
+padding: 20px;
+text-align: center;
+margin: 20px 0;
+}
+.pricing-total {
+font-size: 2em;
+font-weight: bold;
+color: #90c090;
+}
+.pricing-breakdown {
+color: #b0b0b0;
+margin-top: 10px;
+font-size: 0.9em;
+}
+.stage-indicator {
+display: flex;
+align-items: center;
+gap: 10px;
+padding: 8px;
+background: #444;
+border-radius: 4px;
+}
+.stage-circle {
+width: 24px;
+height: 24px;
+border-radius: 50%;
+background: #666;
+color: white;
+display: flex;
+align-items: center;
+justify-content: center;
+font-weight: bold;
+font-size: 12px;
+}
+.stage-text {
+flex: 1;
+color: #e0e0e0;
+font-weight: 500;
+}
+.stage-status {
+font-size: 16px;
+}
+.stage-waiting .stage-circle {
+background: #666;
+}
+.stage-active .stage-circle {
+background: #ab0911;
+animation: pulse-red 1.5s infinite;
+}
+.stage-completed .stage-circle {
+background: #4a5a4a;
+}
+.stage-waiting .stage-status::before {
+content: "⏳";
+}
+.stage-active .stage-status::before {
+content: "🔄";
+}
+.stage-completed .stage-status::before {
+content: "✅";
+}
+@keyframes pulse-red {
+0%, 100% { opacity: 1; }
+50% { opacity: 0.6; }
+}
+.digit-stat {
+background: #555;
+border-radius: 4px;
+padding: 8px 4px;
+text-align: center;
+}
+.digit-stat-number {
+font-weight: bold;
+color: #e0e0e0;
+font-size: 14px;
+}
+.digit-stat-bar {
+height: 20px;
+background: #666;
+border-radius: 2px;
+margin: 5px 0;
+position: relative;
+overflow: hidden;
+}
+.digit-stat-fill {
+height: 100%;
+background: linear-gradient(90deg, #ab0911, #d42c40);
+border-radius: 2px;
+transition: width 0.3s ease;
+}
+.digit-stat-count {
+font-size: 10px;
+color: #b0b0b0;
+}
+.code-entry {
+padding: 5px 8px;
+margin: 2px 0;
+background: #444;
+border-radius: 3px;
+border-left: 3px solid #ab0911;
+}
+.code-entry-code {
+font-weight: bold;
+color: #e0e0e0;
+}
+.code-entry-time {
+color: #b0b0b0;
+font-size: 10px;
+}
+.code-entry-correct {
+border-left-color: #4a5a4a;
+}
+.code-entry-correct .code-entry-code {
+color: #90c090;
+}
+</style>
+</head>
+<body>
+<div class="connection-status" id="connectionStatus">
+🟡 Ładowanie...
+</div>
+<div class="container">
+<div class="header">
+<h1>Panel Sterowania Pokoju Zagadek</h1>
+<p>System zarządzania grą escape room</p>
+</div>
+<!-- Nawigacja -->
+<div style="text-align: center; margin-bottom: 20px;">
+<button class="btn btn-primary" onclick="showPanel('game')" id="gameTab">Gra</button>
+<button class="btn btn-success" onclick="showPanel('puzzles')" id="puzzlesTab">Zagadki</button>
+<button class="btn btn-success" onclick="showPanel('history')" id="historyTab">Historia</button>
+<button class="btn btn-warning" onclick="showPanel('pricing')" id="pricingTab">Cennik</button>
+<button class="btn btn-warning" onclick="showPanel('config')" id="configTab">Konfiguracja</button>
+</div>
+<!-- Panel Gry -->
+<div id="gamePanel">
+<div class="main-panel">
+<!-- Rejestracja grupy -->
+<div class="card">
+<h2>Rejestracja Grupy</h2>
+<div class="form-group">
+<label for="groupName">Nazwa grupy:</label>
+<input type="text" id="groupName" placeholder="np. Drużyna Alpha">
+</div>
+<div class="form-group">
+<label for="playerCount">Liczba graczy:</label>
+<select id="playerCount">
+<option value="2">2 graczy</option>
+<option value="3">3 graczy</option>
+<option value="4">4 graczy</option>
+<option value="5">5 graczy</option>
+<option value="6">6 graczy</option>
+</select>
+</div>
+<div class="checkbox-group">
+<input type="checkbox" id="testGame">
+<label for="testGame">Gra testowa</label>
+</div>
+<button class="btn btn-primary" onclick="startGame()">Rozpocznij Grę</button>
+</div>
+<!-- Status gry -->
+<div class="card">
+<h2>Status Gry</h2>
+<div id="gameStatus" class="game-status status-waiting">
+Oczekiwanie na rozpoczęcie gry
+</div>
+<div id="timer" class="timer">00:00</div>
+<div id="gameInfo" style="text-align: center; color: #666;">
+Brak aktywnej sesji
+</div>
+<div style="text-align: center; margin-top: 15px;">
+<button class="btn btn-warning" onclick="pauseGame()" disabled id="pauseBtn">Pauza</button>
+<button class="btn btn-danger" onclick="stopGame()" disabled id="stopBtn">Stop</button>
+<button class="btn btn-success" onclick="completeGame()" disabled id="completeBtn">Ukończono</button>
+</div>
+</div>
+</div>
+<!-- Żądanie podpowiedzi -->
+<div id="hintRequest" class="hint-request" style="display: none;">
+🔔 GRACZE PROSZĄ O PODPOWIEDŹ (GOŁĄB)
+<button class="btn btn-danger" onclick="hideHintRequest()" style="margin-left: 15px; padding: 5px 10px;">Ukryj</button>
+</div>
+<!-- Panel podpowiedzi -->
+<div class="card hint-panel">
+<h2>🎵 Panel Podpowiedzi Audio - Gołąb</h2>
+<!-- Suwak głośności -->
+<div style="background: #333; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+<label for="volumeSlider" style="display: block; margin-bottom: 10px; font-weight: bold; color: #e0e0e0;">🔊 Głośność Audio (0-30):</label>
+<div style="display: flex; align-items: center; gap: 15px;">
+<span style="color: #b0b0b0;">0</span>
+<input type="range" id="volumeSlider" min="0" max="30" value="20" style="flex: 1; height: 10px; background: #555; outline: none; border-radius: 5px;" oninput="setVolume(this.value)">
+<span style="color: #b0b0b0;">30</span>
+<span id="volumeValue" style="color: #e0e0e0; font-weight: bold; min-width: 40px;">20</span>
+</div>
+</div>
+<div class="audio-controls">
+<div class="audio-control-item">
+<label>🕊️ TESTY - Tylko 2 pliki</label>
+<button class="audio-btn audio-btn-primary" onclick="playAudio('golab')">Test 1 (001.mp3)</button>
+<button class="audio-btn audio-btn-success" onclick="playAudio('hint1')">Test 2 (002.mp3)</button>
+<button class="audio-btn audio-btn-success" onclick="playAudio('hint2')">Test 2 ponownie</button>
+<button class="audio-btn audio-btn-danger" onclick="stopAudio()">⏹️ STOP</button>
+</div>
+</div>
+</div>
+<!-- Logi -->
+<div class="card logs-panel">
+<h2>Logi Systemu</h2>
+<div style="text-align: right; margin-bottom: 10px;">
+<button class="btn btn-warning" onclick="clearLogs()">Wyczyść logi</button>
+</div>
+<div id="logs">
+<div class="log-entry">
+<strong>[System]</strong> Panel uruchomiony - oczekiwanie na połączenie
+</div>
+</div>
+</div>
+</div>
+<!-- Panel Zagadki -->
+<div id="puzzlesPanel" style="display: none;">
+<div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
+<!-- Walizka LOTTO -->
+<div class="card">
+<h2>🧳 Walizka LOTTO</h2>
+<div style="margin-bottom: 20px;">
+<div style="background: #333; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+<h3 style="margin-bottom: 10px; color: #e0e0e0;">📍 Status Etapów</h3>
+<div style="display: flex; flex-direction: column; gap: 10px;">
+<div id="stage1Status" class="stage-indicator">
+<span class="stage-circle">1</span>
+<span class="stage-text">Tag RFID 1</span>
+<span class="stage-status">⏳</span>
+</div>
+<div id="stage2Status" class="stage-indicator">
+<span class="stage-circle">2</span>
+<span class="stage-text">Klawiatura</span>
+<span class="stage-status">⏳</span>
+</div>
+<div id="stage3Status" class="stage-indicator">
+<span class="stage-circle">3</span>
+<span class="stage-text">Tag RFID 2</span>
+<span class="stage-status">⏳</span>
+</div>
+</div>
+</div>
+<div style="text-align: center; margin-bottom: 15px;">
+<button class="btn btn-primary" onclick="openLock()" id="openLockBtn">🔓 Otwórz Zamek</button>
+<button class="btn btn-warning" onclick="resetPuzzle('walizka')" id="resetPuzzleBtn">🔄 Reset Zagadki</button>
+</div>
+</div>
+<div style="background: #333; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+<h3 style="margin-bottom: 10px; color: #e0e0e0;">📝 Historia Kodów</h3>
+<div id="codesHistory" style="max-height: 150px; overflow-y: auto; font-family: monospace; font-size: 12px;">
+<div style="color: #666; text-align: center; padding: 10px;">Brak prób</div>
+</div>
+</div>
+<div style="background: #333; padding: 15px; border-radius: 8px;">
+<h3 style="margin-bottom: 10px; color: #e0e0e0;">📊 Statystyki Cyfr</h3>
+<div id="digitStats" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; font-size: 11px;">
+<!-- Cyfry 0-9 będą tu generowane przez JS -->
+</div>
+</div>
+</div>
+<!-- Zagadka #2 - Placeholder -->
+<div class="card">
+<h2>🔒 Zagadka #2</h2>
+<div style="text-align: center; color: #666; padding: 40px 20px;">
+<div style="font-size: 48px; margin-bottom: 20px;">🚧</div>
+<h3>W Przygotowaniu</h3>
+<p>Kolejna zagadka będzie<br>dostępna wkrótce</p>
+</div>
+</div>
+<!-- Zagadka #3 - Placeholder -->
+<div class="card">
+<h2>🎲 Zagadka #3</h2>
+<div style="text-align: center; color: #666; padding: 40px 20px;">
+<div style="font-size: 48px; margin-bottom: 20px;">🚧</div>
+<h3>W Przygotowaniu</h3>
+<p>Kolejna zagadka będzie<br>dostępna wkrótce</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Panel Cennik -->
+<div id="pricingPanel" style="display: none;">
+<div class="card pricing-calculator">
+<h2>💰 Kalkulator Cennik</h2>
+<div class="pricing-row">
+<div class="form-group">
+<label for="groupSize">📊 Liczebność grupy:</label>
+<select id="groupSize" onchange="updateSelectedCountVisibility(); calculatePrice();">
+<option value="2">2 osoby</option>
+<option value="3">3 osoby</option>
+<option value="4" selected>4 osoby</option>
+<option value="5">5 osób</option>
+<option value="6">6 osób</option>
+</select>
+</div>
+<div class="form-group">
+<label for="basePrice">💵 Cena za grupę (zł):</label>
+<input type="number" id="basePrice" value="100" min="0" onchange="calculatePrice()">
+</div>
+</div>
+<div class="pricing-row">
+<div class="form-group">
+<label for="discountType">🎫 Typ zniżki:</label>
+<select id="discountType" onchange="calculatePrice()">
+<option value="none">Brak zniżki</option>
+<option value="znajomi">Znajomi Starzika</option>
+<option value="tme">TME Tesla</option>
+<option value="starziki">Starziki</option>
+</select>
+</div>
+<div class="form-group">
+<label>📋 Sposób naliczania zniżki:</label>
+<div class="radio-group">
+<input type="radio" id="discountAll" name="discountMode" value="all" checked onchange="updateSelectedCountVisibility(); calculatePrice();">
+<label for="discountAll">🟢 Dla całej grupy</label>
+<input type="radio" id="discountSelected" name="discountMode" value="selected" onchange="updateSelectedCountVisibility(); calculatePrice();">
+<label for="discountSelected">🟡 Dla wybranych osób</label>
+</div>
+</div>
+</div>
+<div class="form-group">
+<label>💸 Jednostka zniżki:</label>
+<div class="radio-group">
+<input type="radio" id="discountUnitZl" name="discountUnit" value="amount" onchange="calculatePrice();">
+<label for="discountUnitZl">💰 Złotówki (zł)</label>
+<input type="radio" id="discountUnitPercent" name="discountUnit" value="percent" checked onchange="calculatePrice();">
+<label for="discountUnitPercent">📊 Procent (%)</label>
+</div>
+</div>
+<div class="form-group">
+<label for="discountValue">💸 Wartość zniżki:</label>
+<input type="number" id="discountValue" value="20" min="0" onchange="calculatePrice()" placeholder="Wpisz wartość zniżki" style="font-size: 20px; padding: 18px; font-weight: bold;">
+</div>
+<div class="form-group" id="selectedCountGroup" style="display: none;">
+<label for="selectedCount">👥 Ile osób ze zniżką:</label>
+<input type="number" id="selectedCount" value="1" min="1" max="6" onchange="calculatePrice()">
+</div>
+<div class="pricing-result">
+<div class="pricing-total" id="totalPrice">100 zł</div>
+<div class="pricing-breakdown" id="priceBreakdown">Grupa 4 osób - cena pełna</div>
+</div>
+<div style="text-align: center; margin-top: 20px;">
+<button class="btn btn-primary" onclick="applyPricingToGame()">💰 Zastosuj do aktualnej gry</button>
+<button class="btn btn-success" onclick="savePricingPreset()">💾 Zapisz preset</button>
+<button class="btn btn-warning" onclick="resetPricing()">🔄 Reset</button>
+</div>
+</div>
+<div class="card">
+<h2>📋 Zapisane Presety Cenowe</h2>
+<div id="pricingPresets">
+<p style="text-align: center; color: #666;">Brak zapisanych presetów</p>
+</div>
+</div>
+</div>
+<!-- Panel Historii -->
+<div id="historyPanel" style="display: none;">
+<div class="card">
+<h2>Historia Gier</h2>
+<div style="margin-bottom: 20px;">
+<div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+<input type="text" id="searchFilter" placeholder="Szukaj po nazwie grupy..." style="flex: 1; min-width: 200px;">
+<select id="difficultyFilter">
+<option value="">Wszystkie gry</option>
+</select>
+<select id="statusFilter">
+<option value="">Wszystkie statusy</option>
+<option value="completed">Ukończone</option>
+<option value="failed">Nieukończone</option>
+<option value="test">Testowe</option>
+</select>
+<button class="btn btn-primary" onclick="applyFilters()">🔍 Filtruj</button>
+<button class="btn btn-success" onclick="exportToCSV()">📊 Eksport CSV</button>
+<button class="btn btn-warning" onclick="loadHistoryFromESP()">📥 Pobierz z ESP32</button>
+<button class="btn btn-danger" onclick="clearHistory()">🗑️ Wyczyść historię</button>
+</div>
+</div>
+<div id="gameHistory">
+<!-- Historia gier będzie tutaj -->
+</div>
+<div id="historyStats" style="margin-top: 20px; padding: 15px; background: #333; border-radius: 4px;">
+<h3>Statystyki</h3>
+<div id="statsContent">
+<p>Brak danych</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Panel Konfiguracji -->
+<div id="configPanel" style="display: none;">
+<div class="card">
+<h2>Status Urządzeń</h2>
+<div id="devicesStatus">
+<div class="device-status device-offline" id="masterStatus">🎛️ Master: OFFLINE</div>
+<div class="device-status device-offline" id="slaveStatus">🕊️ Gołąb: OFFLINE</div>
+<div class="device-status device-offline" id="slave3Status">🧳 Walizka: OFFLINE</div>
+</div>
+</div>
+<div class="card">
+<h2>Informacje o Sieci WiFi</h2>
+<div class="wifi-info" id="wifiInfo">
+<div>Status: <span id="wifiStatus">Sprawdzanie...</span></div>
+<div>IP ESP32: <span id="espIP">-</span></div>
+<div>Nazwa sieci: <span id="wifiSSID">-</span></div>
+<div>Siła sygnału: <span id="wifiRSSI">-</span></div>
+</div>
+</div>
+<div class="card">
+<h2>Konfiguracja Systemu</h2>
+<div class="form-group">
+<label for="gameTime">Czas gry (minuty):</label>
+<input type="number" id="gameTime" value="60" min="1" max="180" placeholder="60" style="display: none;">
+</div>
+<div class="form-group">
+<label for="autoHintDelay">Automatyczne podpowiedzi po (minutach):</label>
+<input type="number" id="autoHintDelay" value="15" min="5" max="60" placeholder="15" style="display: none;">
+</div>
+<!-- Automatyczne powiadomienia czasowe -->
+<div style="border: 1px solid #404040; border-radius: 4px; padding: 15px; margin-top: 20px;">
+<h3 style="margin-bottom: 15px; color: #e0e0e0;">⏰ Automatyczne Powiadomienia Czasowe</h3>
+<div class="checkbox-group">
+<input type="checkbox" id="enableTimeNotifications" checked>
+<label for="enableTimeNotifications">Włącz automatyczne powiadomienia</label>
+</div>
+<div class="form-group">
+<label for="timeInterval">Interwał powiadomień (minuty):</label>
+<select id="timeInterval">
+<option value="10">Co 10 minut</option>
+<option value="15" selected>Co 15 minut</option>
+<option value="20">Co 20 minut</option>
+<option value="30">Co 30 minut</option>
+</select>
+</div>
+<div class="form-group">
+<label for="timeAudioFile">Plik audio powiadomień:</label>
+<select id="timeAudioFile">
+<option value="time_warning">time_warning (domyślny)</option>
+<option value="time_15min">time_15min (15 minut)</option>
+<option value="time_30min">time_30min (30 minut)</option>
+<option value="golab">golab (alternatywny)</option>
+</select>
+</div>
+<div style="background: #333; padding: 10px; border-radius: 4px; margin: 10px 0; font-size: 12px; color: #b0b0b0;">
+<strong>ℹ️ Informacja:</strong><br>
+Póki co używane są istniejące pliki (001.mp3, 002.mp3).<br>
+Po dodaniu nowych plików MP3 na kartę SD automatycznie przełączy się na właściwe dźwięki.
+</div>
+<div id="timeNotificationStatus" style="color: #b0b0b0; font-size: 14px; margin-top: 10px;">
+Status: Wyłączone (brak aktywnej gry)
+</div>
+</div>
+<div style="text-align: center; margin: 20px 0;">
+<button class="btn btn-primary" onclick="saveConfig()">💾 Zapisz Konfigurację</button>
+<button class="btn btn-warning" onclick="testConnection()">🔗 Testuj Połączenie</button>
+<button class="btn btn-danger" onclick="resetConfig()">🔄 Reset do Domyślnych</button>
+</div>
+<div style="border: 1px solid #404040; border-radius: 4px; padding: 15px; margin-top: 20px;">
+<h3>Komendy Systemowe</h3>
+<div style="text-align: center; margin: 15px 0;">
+<button class="btn btn-success" onclick="diagnostics()">🔧 Diagnostyka</button>
+<button class="btn btn-primary" onclick="checkAudioFiles()">📁 Sprawdź Pliki Audio</button>
+</div>
+<div style="border-top: 1px solid #404040; padding-top: 15px; margin-top: 15px;">
+<h4 style="margin-bottom: 15px; color: #e0e0e0;">🔄 Restart Urządzeń</h4>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+<button class="btn btn-warning" onclick="restartMaster()">🔄 Restart Master</button>
+<button class="btn btn-danger" onclick="restartSlave()">🔄 Restart Gołąb</button>
+<button class="btn btn-primary" onclick="restartSlave3()">🔄 Restart Walizka</button>
+<button class="btn btn-success" onclick="restartAll()">🔄 Restart All</button>
+</div>
+<div id="restartCountdown" style="display: none; text-align: center; margin-top: 15px; padding: 10px; background: #4a2a2a; border-radius: 4px; color: #e0b0b0; font-weight: bold;"></div>
+</div>
+</div>
+</div>
+</div>
+<script>
+// Konfiguracja systemu
+let config = {
+gameTime: 60,
+autoHintDelay: 15,
+enableTimeNotifications: true,
+timeInterval: 15,
+timeAudioFile: 'time_warning'
+};
+// Zmienne globalne
+let gameActive = false;
+let gamePaused = false;
+let startTime = null;
+let timerInterval = null;
+let currentSession = null;
+let gameHistory = [];
+let currentPanel = 'game';
+let slaveConnected = false;
+let timeNotificationTimer = null;
+let lastTimeNotification = 0;
+let autoHintTimer = null;
+let pricingPresets = [];
+
+// Zmienne dla zagadek
+let puzzleStates = {
+    walizka: {
+        stage: 'WAITING_TAG1', // KEYPAD_ACTIVE, WAITING_TAG2, COMPLETED
+        codesHistory: [],
+        digitStats: {0:0, 1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0},
+        relayState: false,
+        lastUpdate: 0
+    }
+};
+let slave3Connected = false;
+
+// FUNKCJE CENNIKA
+function calculatePrice() {
+    try {
+        const groupSize = parseInt(document.getElementById('groupSize').value) || 4;
+        const basePrice = parseFloat(document.getElementById('basePrice').value) || 0;
+        const discountType = document.getElementById('discountType').value;
+        const discountModeElement = document.querySelector('input[name="discountMode"]:checked');
+        const discountMode = discountModeElement ? discountModeElement.value : 'all';
+        const discountValue = parseFloat(document.getElementById('discountValue').value) || 0;
+        const discountUnitElement = document.querySelector('input[name="discountUnit"]:checked');
+        const discountUnit = discountUnitElement ? discountUnitElement.value : 'percent';
+        const selectedCount = parseInt(document.getElementById('selectedCount').value) || 1;
+
+        let finalPrice = basePrice;
+        let breakdown = `Grupa ${groupSize} osób`;
+
+        if (discountType !== 'none' && discountValue > 0) {
+            let discountAmount = 0;
+
+            if (discountMode === 'all') {
+                // Zniżka dla całej grupy
+                if (discountUnit === 'percent') {
+                    discountAmount = basePrice * (discountValue / 100);
+                    breakdown += ` - ${discountValue}% dla całej grupy`;
+                } else {
+                    discountAmount = discountValue;
+                    breakdown += ` - ${discountValue}zł dla całej grupy`;
+                }
+                finalPrice = basePrice - discountAmount;
+            } else {
+                // Zniżka dla wybranych osób
+                if (discountUnit === 'percent') {
+                    discountAmount = basePrice * (discountValue / 100) * (selectedCount / groupSize);
+                    breakdown += ` - ${discountValue}% dla ${selectedCount} osób`;
+                } else {
+                    discountAmount = discountValue;
+                    breakdown += ` - ${discountValue}zł dla ${selectedCount} osób`;
+                }
+                finalPrice = basePrice - discountAmount;
+            }
+
+            const discountName = getDiscountName(discountType);
+            breakdown += ` (${discountName})`;
+        } else {
+            breakdown += ' - cena pełna';
+        }
+
+        // Nie pozwól na cenę ujemną
+        finalPrice = Math.max(0, finalPrice);
+
+        const totalElement = document.getElementById('totalPrice');
+        const breakdownElement = document.getElementById('priceBreakdown');
+        
+        if (totalElement) {
+            totalElement.textContent = finalPrice.toFixed(0) + ' zł';
+        }
+        if (breakdownElement) {
+            breakdownElement.textContent = breakdown;
+        }
+        
+    } catch (error) {
+        console.error('Error in calculatePrice:', error);
+    }
+}
+
+function updateSelectedCountVisibility() {
+    try {
+        const discountModeElement = document.querySelector('input[name="discountMode"]:checked');
+        const selectedCountGroup = document.getElementById('selectedCountGroup');
+        
+        if (!discountModeElement || !selectedCountGroup) {
+            return;
+        }
+        
+        const discountMode = discountModeElement.value;
+        
+        if (discountMode === 'selected') {
+            selectedCountGroup.style.display = 'block';
+            // Ustaw maksymalną liczbę osób ze zniżką równą wielkości grupy
+            const groupSize = parseInt(document.getElementById('groupSize').value) || 4;
+            const selectedCountInput = document.getElementById('selectedCount');
+            if (selectedCountInput) {
+                selectedCountInput.max = groupSize;
+                if (parseInt(selectedCountInput.value) > groupSize) {
+                    selectedCountInput.value = groupSize;
+                }
+            }
+        } else {
+            selectedCountGroup.style.display = 'none';
+        }
+    } catch (error) {
+        console.error('Error in updateSelectedCountVisibility:', error);
+    }
+}
+
+function getDiscountName(type) {
+    switch(type) {
+        case 'znajomi': return 'Znajomi Starzika';
+        case 'tme': return 'TME Tesla';  
+        case 'starziki': return 'Starziki';
+        default: return 'Zniżka';
+    }
+}
+
+function resetPricing() {
+    document.getElementById('groupSize').value = '4';
+    document.getElementById('basePrice').value = '100';
+    document.getElementById('discountType').value = 'none';
+    document.getElementById('discountValue').value = '20';
+    document.getElementById('discountUnitPercent').checked = true;
+    document.getElementById('discountAll').checked = true;
+    document.getElementById('selectedCount').value = '1';
+    updateSelectedCountVisibility();
+    calculatePrice();
+}
+
+function applyPricingToGame() {
+    const finalPrice = document.getElementById('totalPrice').textContent;
+    const breakdown = document.getElementById('priceBreakdown').textContent;
+
+    if (currentSession) {
+        currentSession.price = finalPrice;
+        currentSession.priceBreakdown = breakdown;
+        showNotification(`Cennik zastosowany: ${finalPrice}`, 'success');
+        addLog('game', `Cennik: ${breakdown} = ${finalPrice}`);
+    } else {
+        showNotification('Brak aktywnej gry - rozpocznij grę aby zastosować cennik', 'warning');
+    }
+}
+
+function savePricingPreset() {
+    const groupSize = document.getElementById('groupSize').value;
+    const basePrice = document.getElementById('basePrice').value;
+    const discountType = document.getElementById('discountType').value;
+    const discountValue = document.getElementById('discountValue').value;
+    const discountUnitElement = document.querySelector('input[name="discountUnit"]:checked');
+    const discountUnit = discountUnitElement ? discountUnitElement.value : 'percent';
+
+    const presetName = prompt('Nazwa presetu:', `${getDiscountName(discountType)} ${groupSize} osób`);
+    if (!presetName) return;
+
+    const preset = {
+        id: Date.now(),
+        name: presetName,
+        groupSize: groupSize,
+        basePrice: basePrice,
+        discountType: discountType,
+        discountValue: discountValue,
+        discountUnit: discountUnit
+    };
+
+    pricingPresets.push(preset);
+    if (window.localStorage) {
+        window.localStorage.setItem('pricingPresets', JSON.stringify(pricingPresets));
+    }
+    updatePresetsDisplay();
+    showNotification('Preset zapisany!', 'success');
+}
+
+function updatePresetsDisplay() {
+    const container = document.getElementById('pricingPresets');
+
+    if (pricingPresets.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #666;">Brak zapisanych presetów</p>';
+        return;
+    }
+
+    container.innerHTML = '';
+    pricingPresets.forEach(preset => {
+        const div = document.createElement('div');
+        div.className = 'game-history-item';
+        div.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <strong>${preset.name}</strong><br>
+                    <small>Grupa ${preset.groupSize} osób, ${preset.basePrice}zł, ${getDiscountName(preset.discountType)} ${preset.discountValue}${preset.discountUnit === 'percent' ? '%' : 'zł'}</small>
+                </div>
+                <div>
+                    <button class="btn btn-success" onclick="loadPreset(${preset.id})" style="font-size: 12px; padding: 5px 10px;">Wczytaj</button>
+                    <button class="btn btn-danger" onclick="deletePreset(${preset.id})" style="font-size: 12px; padding: 5px 10px;">Usuń</button>
+                </div>
+            </div>
+        `;
+        container.appendChild(div);
+    });
+}
+
+function loadPreset(presetId) {
+    const preset = pricingPresets.find(p => p.id === presetId);
+    if (!preset) return;
+
+    document.getElementById('groupSize').value = preset.groupSize;
+    document.getElementById('basePrice').value = preset.basePrice;
+    document.getElementById('discountType').value = preset.discountType;
+    document.getElementById('discountValue').value = preset.discountValue;
+
+    // Ustaw radio button
+    if (preset.discountUnit === 'amount') {
+        document.getElementById('discountUnitZl').checked = true;
+    } else {
+        document.getElementById('discountUnitPercent').checked = true;
+    }
+
+    calculatePrice();
+    showNotification(`Wczytano preset: ${preset.name}`, 'success');
+}
+
+function deletePreset(presetId) {
+    if (confirm('Czy na pewno chcesz usunąć ten preset?')) {
+        pricingPresets = pricingPresets.filter(p => p.id !== presetId);
+        if (window.localStorage) {
+            window.localStorage.setItem('pricingPresets', JSON.stringify(pricingPresets));
+        }
+        updatePresetsDisplay();
+        showNotification('Preset usunięty', 'success');
+    }
+}
+
+// Inicjalizacja
+document.addEventListener('DOMContentLoaded', function() {
+loadConfig();
+loadGameHistory();
+updateStats();
+checkESPConnection();
+
+// Event listenery
+document.getElementById('searchFilter').addEventListener('input', applyFilters);
+document.getElementById('statusFilter').addEventListener('change', applyFilters);
+
+// Wczytaj presety cenowe
+if (window.localStorage) {
+    const savedPresets = window.localStorage.getItem('pricingPresets');
+    if (savedPresets) {
+        pricingPresets = JSON.parse(savedPresets);
+    }
+}
+
+// Sprawdzaj połączenie co 5 sekund
+setInterval(checkESPConnection, 5000);
+// Sprawdzaj żądania podpowiedzi co 1 sekundę
+setInterval(checkHintRequests, 1000);
+// Sprawdzaj status zagadek co 3 sekundy
+setInterval(checkPuzzleStatus, 3000);
+
+// Pobierz historię z ESP32 po 3 sekundach (żeby nawiązać połączenie)
+setTimeout(() => {
+if (document.getElementById('connectionStatus').textContent.includes('Połączono')) {
+loadHistoryFromESP();
+}
+}, 3000);
+});
+
+// Sprawdzenie połączenia z ESP32
+function checkESPConnection() {
+fetch('/status')
+.then(response => response.json())
+.then(data => {
+updateConnectionStatus('connected');
+updateDeviceStatus(true, data.golab_connected || false, data.walizka_connected || false);
+updateWiFiInfo(data);
+})
+.catch(error => {
+updateConnectionStatus('disconnected');
+updateDeviceStatus(false, false, false);
+console.log('Brak połączenia z ESP32');
+});
+}
+
+// Aktualizacja informacji WiFi
+function updateWiFiInfo(data) {
+if (data) {
+document.getElementById('wifiStatus').textContent = 'Połączony';
+document.getElementById('espIP').textContent = data.ip || 'Nieznany';
+document.getElementById('wifiSSID').textContent = data.ssid || 'Nieznany';
+document.getElementById('wifiRSSI').textContent = (data.rssi || '?') + ' dBm';
+}
+}
+
+// Ładowanie konfiguracji
+function loadConfig() {
+const savedConfig = JSON.parse(window.localStorage?.getItem('escapeRoomConfig') || '{}');
+config = { ...config, ...savedConfig };
+document.getElementById('gameTime').value = config.gameTime;
+document.getElementById('autoHintDelay').value = config.autoHintDelay;
+document.getElementById('enableTimeNotifications').checked = config.enableTimeNotifications;
+document.getElementById('timeInterval').value = config.timeInterval;
+document.getElementById('timeAudioFile').value = config.timeAudioFile;
+
+// Wczytaj zapisaną głośność
+const savedVolume = window.localStorage?.getItem('audioVolume') || '20';
+document.getElementById('volumeSlider').value = savedVolume;
+document.getElementById('volumeValue').textContent = savedVolume;
+}
+
+// Zapisywanie konfiguracji
+function saveConfig() {
+config.gameTime = parseInt(document.getElementById('gameTime').value);
+config.autoHintDelay = parseInt(document.getElementById('autoHintDelay').value);
+config.enableTimeNotifications = document.getElementById('enableTimeNotifications').checked;
+config.timeInterval = parseInt(document.getElementById('timeInterval').value);
+config.timeAudioFile = document.getElementById('timeAudioFile').value;
+if (window.localStorage) {
+    window.localStorage.setItem('escapeRoomConfig', JSON.stringify(config));
+}
+showNotification('Konfiguracja zapisana!', 'success');
+updateTimeNotificationStatus();
+}
+
+// Rozpoczęcie gry
+function startGame() {
+const groupName = document.getElementById('groupName').value.trim();
+const playerCount = document.getElementById('playerCount').value;
+const isTestGame = document.getElementById('testGame').checked;
+
+if (!groupName) {
+showNotification('Proszę podać nazwę grupy!', 'error');
+return;
+}
+
+currentSession = {
+groupName: groupName,
+playerCount: parseInt(playerCount),
+difficulty: 'standard', // Tylko jeden poziom
+isTestGame: isTestGame,
+sessionId: 'SESSION_' + Date.now(),
+startTime: new Date(),
+hintsUsed: 0,
+status: 'active'
+};
+
+gameActive = true;
+gamePaused = false;
+startTime = new Date();
+
+// Aktualizacja UI
+document.getElementById('gameStatus').textContent = 'Gra w toku';
+document.getElementById('gameStatus').className = 'game-status status-active';
+document.getElementById('gameInfo').innerHTML =
+`<strong>${groupName}</strong><br>
+Graczy: ${playerCount}<br>
+${isTestGame ? 'Tryb testowy' : 'Gra właściwa'}`;
+
+// Aktywacja przycisków
+document.getElementById('pauseBtn').disabled = false;
+document.getElementById('stopBtn').disabled = false;
+document.getElementById('completeBtn').disabled = false;
+
+// Start timera
+startTimer();
+
+// Start automatycznych powiadomień czasowych
+startTimeNotifications();
+
+// Wysłanie do ESP32
+sendCommandToESP('start_game', currentSession);
+addLog('game', `Rozpoczęto grę: ${groupName} (${playerCount} graczy)`);
+showNotification('Gra rozpoczęta!', 'success');
+}
+
+// Timer
+function startTimer() {
+timerInterval = setInterval(updateTimer, 1000);
+}
+
+function updateTimer() {
+if (!gameActive || gamePaused) return;
+const now = new Date();
+const elapsed = Math.floor((now - startTime) / 1000);
+const minutes = Math.floor(elapsed / 60);
+const seconds = elapsed % 60;
+document.getElementById('timer').textContent =
+`${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+}
+
+// Automatyczne podpowiedzi
+function startAutoHintTimer() {
+if (autoHintTimer) clearInterval(autoHintTimer);
+autoHintTimer = setInterval(() => {
+if (gameActive && !gamePaused) {
+const elapsed = Math.floor((new Date() - startTime) / 1000);
+const minutes = Math.floor(elapsed / 60);
+// Automatyczne podpowiedzi co X minut
+if (minutes > 0 && minutes % config.autoHintDelay === 0) {
+showNotification(`Automatyczna podpowiedź po ${minutes} minutach`, 'warning');
+playAudio('hint1');
+}
+}
+}, 60000); // Sprawdzaj co minutę
+}
+
+// Kontrola gry
+function pauseGame() {
+if (!gameActive) return;
+gamePaused = !gamePaused;
+const pauseBtn = document.getElementById('pauseBtn');
+const status = document.getElementById('gameStatus');
+if (gamePaused) {
+pauseBtn.textContent = 'Wznów';
+status.textContent = 'Gra wstrzymana';
+status.className = 'game-status status-paused';
+addLog('game', 'Gra wstrzymana');
+} else {
+pauseBtn.textContent = 'Pauza';
+status.textContent = 'Gra w toku';
+status.className = 'game-status status-active';
+addLog('game', 'Gra wznowiona');
+}
+updateTimeNotificationStatus();
+sendCommandToESP('pause_game', { paused: gamePaused });
+}
+
+function stopGame() {
+if (!gameActive) return;
+if (confirm('Czy na pewno chcesz zakończyć grę?')) {
+endGame('failed');
+}
+}
+
+function completeGame() {
+if (!gameActive) return;
+if (confirm('Czy gracze ukończyli grę?')) {
+endGame('completed');
+}
+}
+
+// Zakończenie gry
+function endGame(status) {
+const endTime = new Date();
+const duration = Math.floor((endTime - startTime) / 1000);
+
+// Zatrzymaj timery
+clearInterval(timerInterval);
+stopTimeNotifications();
+
+// Zapisz grę do historii
+const gameRecord = {
+...currentSession,
+endTime: endTime,
+duration: duration,
+status: currentSession.isTestGame ? 'test' : status,
+hintsUsed: currentSession.hintsUsed || 0
+};
+
+// Zapisz lokalnie
+gameHistory.unshift(gameRecord);
+saveGameHistory();
+
+// Zapisz na ESP32
+saveGameToESP(gameRecord);
+
+// Reset stanu gry
+gameActive = false;
+gamePaused = false;
+const statusText = status === 'completed' ? 'Gra ukończona!' : 'Gra zakończona';
+document.getElementById('gameStatus').textContent = statusText;
+document.getElementById('gameStatus').className = 'game-status status-waiting';
+
+// Dezaktywacja przycisków
+document.getElementById('pauseBtn').disabled = true;
+document.getElementById('stopBtn').disabled = true;
+document.getElementById('completeBtn').disabled = true;
+document.getElementById('pauseBtn').textContent = 'Pauza';
+
+// Wysłanie do ESP32
+sendCommandToESP('end_game', { status: status });
+const logText = status === 'completed' ? 'ukończono' : 'przerwano';
+addLog('game', `${logText.charAt(0).toUpperCase() + logText.slice(1)} grę: ${currentSession?.groupName} (czas: ${formatDuration(duration)})`);
+const notificationText = status === 'completed' ? 'Gra ukończona!' : 'Gra zakończona';
+showNotification(notificationText, status === 'completed' ? 'success' : 'warning');
+currentSession = null;
+updateStats();
+updateTimeNotificationStatus();
+
+// Reset formularza
+document.getElementById('groupName').value = '';
+document.getElementById('timer').textContent = '00:00';
+document.getElementById('gameInfo').innerHTML = 'Brak aktywnej sesji';
+}
+
+// Odtwarzanie audio
+function playAudio(fileName) {
+if (!slaveConnected) {
+showNotification('Gołąb nie jest połączony!', 'error');
+return;
+}
+const command = {
+action: 'play_audio',
+fileName: fileName,
+sessionId: currentSession?.sessionId || null,
+timestamp: new Date().toISOString()
+};
+fetch('/play_audio', {
+method: 'POST',
+headers: {
+'Content-Type': 'application/json',
+},
+body: JSON.stringify(command)
+})
+.then(response => response.json())
+.then(data => {
+if (data.success) {
+addLog('hint', `Odtwarzanie: ${fileName}.mp3`);
+showNotification(`Odtwarzanie: ${fileName}.mp3`, 'success');
+if (currentSession && fileName.includes('hint')) {
+currentSession.hintsUsed = (currentSession.hintsUsed || 0) + 1;
+}
+} else {
+addLog('error', `Błąd odtwarzania: ${data.error}`);
+showNotification('Błąd odtwarzania audio!', 'error');
+}
+})
+.catch(error => {
+addLog('error', 'Błąd komunikacji z ESP32');
+showNotification('Błąd komunikacji z ESP32!', 'error');
+});
+}
+
+function stopAudio() {
+fetch('/stop_audio', {
+method: 'POST',
+headers: {
+'Content-Type': 'application/json',
+}
+})
+.then(response => response.json())
+.then(data => {
+if (data.success) {
+addLog('hint', 'Zatrzymano audio');
+showNotification('Audio zatrzymane', 'success');
+} else {
+showNotification('Błąd zatrzymywania audio!', 'error');
+}
+})
+.catch(error => {
+showNotification('Błąd komunikacji z ESP32!', 'error');
+});
+}
+
+// Komunikacja z ESP32
+function sendCommandToESP(command, data = {}) {
+const payload = {
+command: command,
+data: data,
+timestamp: new Date().toISOString()
+};
+fetch('/command', {
+method: 'POST',
+headers: {
+'Content-Type': 'application/json',
+},
+body: JSON.stringify(payload)
+})
+.then(response => response.json())
+.then(result => {
+if (result.success) {
+addLog('esp32', `Komenda wysłana: ${command}`);
+} else {
+addLog('error', `Błąd komendy: ${result.error}`);
+}
+})
+.catch(error => {
+addLog('error', `Błąd komunikacji: ${error}`);
+});
+}
+
+// Aktualizacja statusu połączenia
+function updateConnectionStatus(status) {
+const statusElement = document.getElementById('connectionStatus');
+switch(status) {
+case 'connected':
+statusElement.textContent = '🟢 Połączono';
+statusElement.className = 'connection-status connected';
+break;
+case 'connecting':
+statusElement.textContent = '🟡 Łączenie...';
+statusElement.className = 'connection-status connecting';
+break;
+case 'disconnected':
+statusElement.textContent = '🔴 Rozłączono';
+statusElement.className = 'connection-status disconnected';
+break;
+}
+}
+
+// Aktualizacja statusu urządzeń
+function updateDeviceStatus(masterConnected, golabConnected = false, walizkaConnected = false) {
+const masterElement = document.getElementById('masterStatus');
+const slaveElement = document.getElementById('slaveStatus');
+const slave3Element = document.getElementById('slave3Status');
+// Status Master
+if (masterConnected) {
+masterElement.textContent = '🟢 Master: ONLINE';
+masterElement.className = 'device-status device-online';
+} else {
+masterElement.textContent = '🔴 Master: OFFLINE';
+masterElement.className = 'device-status device-offline';
+}
+// Status Gołąb
+slaveConnected = golabConnected;
+if (golabConnected) {
+slaveElement.textContent = '🟢 Gołąb: ONLINE';
+slaveElement.className = 'device-status device-online';
+} else {
+slaveElement.textContent = '🔴 Gołąb: OFFLINE';
+slaveElement.className = 'device-status device-offline';
+}
+// Status Walizka
+slave3Connected = walizkaConnected;
+if (walizkaConnected) {
+slave3Element.textContent = '🟢 Walizka: ONLINE';
+slave3Element.className = 'device-status device-online';
+} else {
+slave3Element.textContent = '🔴 Walizka: OFFLINE';
+slave3Element.className = 'device-status device-offline';
+}
+}
+
+// Sprawdzanie żądań podpowiedzi
+function checkHintRequests() {
+fetch('/hint_status')
+.then(response => response.json())
+.then(data => {
+if (data.hint_requested) {
+showHintRequest();
+playBeepInBrowser();
+}
+})
+.catch(error => {
+// Brak połączenia - ignoruj błąd
+});
+}
+
+function playBeepInBrowser() {
+// Próba odtworzenia beep.mp3 z serwera ESP32
+fetch('/beep.mp3')
+.then(response => {
+if (response.ok) {
+return response.blob();
+}
+throw new Error('Brak pliku beep.mp3');
+})
+.then(blob => {
+const audio = new Audio();
+audio.src = URL.createObjectURL(blob);
+audio.play().catch(e => {
+console.log('Nie można odtworzyć beep - wymagana interakcja użytkownika');
+// Fallback - prosty beep systemowy
+playSystemBeep();
+});
+})
+.catch(error => {
+console.log('Błąd ładowania beep.mp3:', error);
+// Fallback - prosty beep systemowy
+playSystemBeep();
+});
+}
+
+function playSystemBeep() {
+// Backup - systemowy beep przez AudioContext
+try {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    oscillator.frequency.value = 800; // 800Hz
+    oscillator.type = 'sine';
+    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.5);
+} catch (e) {
+    console.log('Beep systemowy niedostępny');
+}
+}
+
+// Automatyczne powiadomienia czasowe
+function startTimeNotifications() {
+if (!config.enableTimeNotifications || !gameActive) {
+updateTimeNotificationStatus();
+return;
+}
+lastTimeNotification = 0;
+timeNotificationTimer = setInterval(() => {
+if (!gameActive || gamePaused || !config.enableTimeNotifications) {
+return;
+}
+const elapsed = Math.floor((new Date() - startTime) / 1000);
+const elapsedMinutes = Math.floor(elapsed / 60);
+// Sprawdź czy minął kolejny interwał
+const nextNotification = lastTimeNotification + config.timeInterval;
+if (elapsedMinutes >= nextNotification && elapsedMinutes > 0) {
+sendTimeNotification(elapsedMinutes);
+lastTimeNotification = elapsedMinutes;
+}
+}, 60000); // Sprawdzaj co minutę
+updateTimeNotificationStatus();
+}
+
+function stopTimeNotifications() {
+if (timeNotificationTimer) {
+clearInterval(timeNotificationTimer);
+timeNotificationTimer = null;
+}
+lastTimeNotification = 0;
+updateTimeNotificationStatus();
+}
+
+function sendTimeNotification(minutes) {
+if (!slaveConnected) {
+addLog('hint', `Powiadomienie czasowe (${minutes} min) - Gołąb offline`);
+return;
+}
+playAudio(config.timeAudioFile);
+addLog('hint', `⏰ Automatyczne powiadomienie: ${minutes} minut`);
+showNotification(`Powiadomienie: ${minutes} minut`, 'warning');
+}
+
+function updateTimeNotificationStatus() {
+const statusElement = document.getElementById('timeNotificationStatus');
+if (!gameActive) {
+statusElement.textContent = 'Status: Wyłączone (brak aktywnej gry)';
+statusElement.style.color = '#666';
+} else if (!config.enableTimeNotifications) {
+statusElement.textContent = 'Status: Wyłączone w konfiguracji';
+statusElement.style.color = '#ab0911';
+} else if (gamePaused) {
+statusElement.textContent = 'Status: Wstrzymane (gra w pauzie)';
+statusElement.style.color = '#6b5a2d';
+} else {
+const nextTime = lastTimeNotification + config.timeInterval;
+statusElement.textContent = `Status: Aktywne (następne: ${nextTime} min)`;
+statusElement.style.color = '#4a5a4a';
+}
+}
+
+function showPanel(panelName) {
+document.getElementById('gamePanel').style.display = 'none';
+document.getElementById('puzzlesPanel').style.display = 'none';
+document.getElementById('historyPanel').style.display = 'none';
+document.getElementById('pricingPanel').style.display = 'none';
+document.getElementById('configPanel').style.display = 'none';
+document.getElementById(panelName + 'Panel').style.display = 'block';
+document.getElementById('gameTab').className = 'btn ' + (panelName === 'game' ? 'btn-primary' : 'btn-success');
+document.getElementById('puzzlesTab').className = 'btn ' + (panelName === 'puzzles' ? 'btn-primary' : 'btn-success');
+document.getElementById('historyTab').className = 'btn ' + (panelName === 'history' ? 'btn-primary' : 'btn-success');
+document.getElementById('pricingTab').className = 'btn ' + (panelName === 'pricing' ? 'btn-primary' : 'btn-warning');
+document.getElementById('configTab').className = 'btn ' + (panelName === 'config' ? 'btn-primary' : 'btn-warning');
+currentPanel = panelName;
+if (panelName === 'history') {
+loadGameHistory();
+} else if (panelName === 'config') {
+updateTimeNotificationStatus();
+} else if (panelName === 'pricing') {
+setTimeout(() => {
+resetPricing();
+updatePresetsDisplay();
+}, 100);
+} else if (panelName === 'puzzles') {
+setTimeout(() => {
+updatePuzzleDisplay();
+checkPuzzleStatus();
+}, 100);
+}
+}
+
+// Zarządzanie historią
+function loadGameHistory() {
+try {
+const saved = window.localStorage?.getItem('escapeRoomHistory');
+if (saved) {
+gameHistory = JSON.parse(saved);
+}
+} catch (e) {
+console.error('Błąd ładowania historii:', e);
+gameHistory = [];
+}
+const historyContainer = document.getElementById('gameHistory');
+historyContainer.innerHTML = '';
+if (gameHistory.length === 0) {
+historyContainer.innerHTML = '<p style="text-align: center; color: #666;">Brak zapisanych gier</p>';
+return;
+}
+const filteredHistory = applyFiltersToHistory();
+filteredHistory.forEach(game => {
+const gameElement = createGameHistoryElement(game);
+historyContainer.appendChild(gameElement);
+});
+}
+
+// Zapisz grę na ESP32
+function saveGameToESP(gameData) {
+fetch('/save_game', {
+method: 'POST',
+headers: {
+'Content-Type': 'application/json',
+},
+body: JSON.stringify(gameData)
+})
+.then(response => response.json())
+.then(data => {
+if (data.success) {
+addLog('esp32', 'Gra zapisana na ESP32');
+} else {
+addLog('error', 'Błąd zapisu gry na ESP32: ' + data.error);
+}
+})
+.catch(error => {
+addLog('error', 'Błąd komunikacji z ESP32 podczas zapisu gry');
+});
+}
+
+// Pobierz historię z ESP32
+function loadHistoryFromESP() {
+fetch('/get_history')
+.then(response => response.json())
+.then(data => {
+if (data.games && Array.isArray(data.games)) {
+gameHistory = data.games;
+if (window.localStorage) {
+    window.localStorage.setItem('escapeRoomHistory', JSON.stringify(gameHistory));
+}
+loadGameHistory();
+updateStats();
+showNotification(`Pobrano ${data.games.length} gier z ESP32`, 'success');
+addLog('esp32', `Historia pobrana z ESP32: ${data.games.length} gier`);
+} else {
+showNotification('Brak historii na ESP32', 'warning');
+}
+})
+.catch(error => {
+showNotification('Błąd pobierania historii z ESP32!', 'error');
+addLog('error', 'Błąd pobierania historii z ESP32');
+});
+}
+
+// Eksport do CSV
+function exportToCSV() {
+fetch('/export_history')
+.then(response => {
+if (response.ok) {
+return response.blob();
+} else {
+throw new Error('Błąd generowania pliku CSV');
+}
+})
+.then(blob => {
+const url = window.URL.createObjectURL(blob);
+const a = document.createElement('a');
+a.style.display = 'none';
+a.href = url;
+const now = new Date();
+const dateStr = now.getFullYear() + '-' + 
+String(now.getMonth() + 1).padStart(2, '0') + '-' + 
+String(now.getDate()).padStart(2, '0');
+a.download = `historia_gier_${dateStr}.csv`;
+document.body.appendChild(a);
+a.click();
+window.URL.revokeObjectURL(url);
+document.body.removeChild(a);
+showNotification('Plik CSV został pobrany!', 'success');
+addLog('esp32', 'Historia wyeksportowana do CSV');
+})
+.catch(error => {
+showNotification('Błąd eksportu do CSV!', 'error');
+addLog('error', 'Błąd eksportu historii do CSV');
+});
+}
+
+function saveGameHistory() {
+try {
+if (window.localStorage) {
+    window.localStorage.setItem('escapeRoomHistory', JSON.stringify(gameHistory));
+}
+} catch (e) {
+console.error('Błąd zapisywania historii:', e);
+showNotification('Błąd zapisywania historii!', 'error');
+}
+}
+
+function createGameHistoryElement(game) {
+const div = document.createElement('div');
+div.className = 'game-history-item';
+const statusClass = game.status === 'completed' ? 'status-completed' :
+game.status === 'test' ? 'status-test' : 'status-failed';
+const statusText = game.status === 'completed' ? 'Ukończono' :
+game.status === 'test' ? 'Test' : 'Nieukończono';
+div.innerHTML = `
+<div class="game-header">
+<div class="game-title">${escapeHtml(game.groupName)}</div>
+<div class="game-date">${formatDate(game.startTime)}</div>
+</div>
+<div class="game-details">
+<div class="game-detail">👥 Graczy: ${game.playerCount}</div>
+<div class="game-detail">⏱️ Czas: ${formatDuration(game.duration)}</div>
+<div class="game-detail">🎵 Audio: ${game.hintsUsed || 0}</div>
+<div class="game-detail">
+<span class="game-status-badge ${statusClass}">${statusText}</span>
+</div>
+</div>
+<div style="text-align: right; margin-top: 10px;">
+<button class="btn btn-danger" onclick="deleteGame('${game.sessionId}')" style="font-size: 12px; padding: 5px 10px;">🗑️ Usuń</button>
+</div>
+`;
+return div;
+}
+
+function applyFiltersToHistory() {
+const searchTerm = document.getElementById('searchFilter').value.toLowerCase();
+const statusFilter = document.getElementById('statusFilter').value;
+return gameHistory.filter(game => {
+const matchesSearch = game.groupName.toLowerCase().includes(searchTerm);
+const matchesStatus = !statusFilter || game.status === statusFilter;
+return matchesSearch && matchesStatus;
+});
+}
+
+function applyFilters() {
+loadGameHistory();
+}
+
+function deleteGame(sessionId) {
+if (confirm('Czy na pewno chcesz usunąć tę grę z historii?')) {
+gameHistory = gameHistory.filter(game => game.sessionId !== sessionId);
+saveGameHistory();
+loadGameHistory();
+updateStats();
+showNotification('Gra usunięta z historii', 'success');
+}
+}
+
+function clearHistory() {
+if (confirm('Czy na pewno chcesz wyczyścić całą historię gier?')) {
+gameHistory = [];
+saveGameHistory();
+loadGameHistory();
+updateStats();
+showNotification('Historia wyczyszczona', 'success');
+}
+}
+
+// Statystyki
+function updateStats() {
+const statsContainer = document.getElementById('statsContent');
+if (gameHistory.length === 0) {
+statsContainer.innerHTML = '<p>Brak danych</p>';
+return;
+}
+const totalGames = gameHistory.length;
+const completedGames = gameHistory.filter(g => g.status === 'completed').length;
+const testGames = gameHistory.filter(g => g.status === 'test').length;
+const realGames = totalGames - testGames;
+const averageTime = gameHistory.reduce((sum, g) => sum + (g.duration || 0), 0) / totalGames;
+const totalHints = gameHistory.reduce((sum, g) => sum + (g.hintsUsed || 0), 0);
+const successRate = realGames > 0 ? Math.round((completedGames / realGames) * 100) : 0;
+statsContainer.innerHTML = `
+<div class="stats-grid">
+<div class="stat-item">
+<div class="stat-value">${totalGames}</div>
+<div class="stat-label">📊 Wszystkich gier</div>
+</div>
+<div class="stat-item">
+<div class="stat-value">${completedGames}</div>
+<div class="stat-label">✅ Ukończonych</div>
+</div>
+<div class="stat-item">
+<div class="stat-value">${successRate}%</div>
+<div class="stat-label">🎯 % Sukcesu</div>
+</div>
+<div class="stat-item">
+<div class="stat-value">${formatDuration(Math.round(averageTime))}</div>
+<div class="stat-label">⏱️ Średni czas</div>
+</div>
+<div class="stat-item">
+<div class="stat-value">${totalHints}</div>
+<div class="stat-label">🎵 Audio użyte</div>
+</div>
+<div class="stat-item">
+<div class="stat-value">${testGames}</div>
+<div class="stat-label">🧪 Gier testowych</div>
+</div>
+</div>
+`;
+}
+
+// Sterowanie głośnością
+function setVolume(volume) {
+document.getElementById('volumeValue').textContent = volume;
+if (window.localStorage) {
+window.localStorage.setItem('audioVolume', volume);
+}
+
+fetch('/set_volume', {
+method: 'POST',
+headers: {
+'Content-Type': 'application/json',
+},
+body: JSON.stringify({ volume: parseInt(volume) })
+})
+.then(response => response.json())
+.then(data => {
+if (data.success) {
+addLog('esp32', `Głośność ustawiona na: ${volume}`);
+} else {
+addLog('error', `Błąd ustawiania głośności: ${data.error}`);
+showNotification('Błąd ustawiania głośności!', 'error');
+}
+})
+.catch(error => {
+addLog('error', 'Błąd komunikacji z ESP32');
+showNotification('Błąd komunikacji z ESP32!', 'error');
+});
+}
+
+// Funkcje restart z countdown
+function startCountdown(type, seconds = 5) {
+const countdownElement = document.getElementById('restartCountdown');
+countdownElement.style.display = 'block';
+let timeLeft = seconds;
+
+const countdownInterval = setInterval(() => {
+countdownElement.textContent = `${type} za ${timeLeft} sekund...`;
+timeLeft--;
+
+if (timeLeft < 0) {
+clearInterval(countdownInterval);
+countdownElement.style.display = 'none';
+// Auto-reconnect po restarcie
+setTimeout(() => {
+updateConnectionStatus('connecting');
+checkESPConnection();
+}, type.includes('Master') || type.includes('All') ? 10000 : 3000);
+}
+}, 1000);
+}
+
+function restartMaster() {
+if (confirm('Czy na pewno chcesz zrestartować ESP32 Master?')) {
+fetch('/restart', {
+method: 'POST'
+})
+.then(response => response.json())
+.then(data => {
+showNotification('ESP32 Master zostanie zrestartowany...', 'warning');
+addLog('esp32', 'Restart Master');
+startCountdown('Restart Master', 5);
+})
+.catch(error => {
+showNotification('Błąd restartu Master!', 'error');
+});
+}
+}
+
+function restartSlave() {
+if (confirm('Czy na pewno chcesz zrestartować Gołąb?')) {
+fetch('/restart_slave', {
+method: 'POST'
+})
+.then(response => response.json())
+.then(data => {
+if (data.success) {
+showNotification('Gołąb zostanie zrestartowany...', 'warning');
+addLog('esp32', 'Restart Gołąb');
+startCountdown('Restart Gołąb', 3);
+} else {
+showNotification('Błąd restartu Gołąb!', 'error');
+}
+})
+.catch(error => {
+showNotification('Błąd komunikacji z ESP32!', 'error');
+});
+}
+}
+
+function restartAll() {
+if (confirm('Czy na pewno chcesz zrestartować cały system (Master + Gołąb)?')) {
+fetch('/restart_all', {
+method: 'POST'
+})
+.then(response => response.json())
+.then(data => {
+showNotification('Cały system zostanie zrestartowany...', 'warning');
+addLog('esp32', 'Restart całego systemu');
+startCountdown('Restart systemu', 8);
+})
+.catch(error => {
+showNotification('Błąd restartu systemu!', 'error');
+});
+}
+}
+
+// Funkcje konfiguracyjne
+function testConnection() {
+showNotification('Testowanie połączenia...', 'warning');
+checkESPConnection();
+}
+
+function resetConfig() {
+if (confirm('Czy na pewno chcesz przywrócić domyślne ustawienia?')) {
+config = {
+gameTime: 60,
+autoHintDelay: 15,
+enableTimeNotifications: true,
+timeInterval: 15,
+timeAudioFile: 'time_warning'
+};
+document.getElementById('gameTime').value = config.gameTime;
+document.getElementById('autoHintDelay').value = config.autoHintDelay;
+document.getElementById('enableTimeNotifications').checked = config.enableTimeNotifications;
+document.getElementById('timeInterval').value = config.timeInterval;
+document.getElementById('timeAudioFile').value = config.timeAudioFile;
+if (window.localStorage) {
+    window.localStorage.removeItem('escapeRoomConfig');
+}
+showNotification('Przywrócono domyślne ustawienia', 'success');
+}
+}
+
+function diagnostics() {
+fetch('/diagnostics', {
+method: 'POST'
+})
+.then(response => response.json())
+.then(data => {
+showNotification('Diagnostyka uruchomiona', 'success');
+addLog('esp32', 'Wyniki diagnostyki: ' + JSON.stringify(data));
+})
+.catch(error => {
+showNotification('Błąd diagnostyki!', 'error');
+});
+}
+
+function checkAudioFiles() {
+fetch('/audio_files')
+.then(response => response.json())
+.then(data => {
+if (data.files && data.files.length > 0) {
+showNotification(`Znaleziono ${data.files.length} plików audio`, 'success');
+addLog('esp32', 'Pliki audio: ' + data.files.join(', '));
+} else {
+showNotification('Nie znaleziono plików audio!', 'warning');
+}
+})
+.catch(error => {
+showNotification('Błąd sprawdzania plików audio!', 'error');
+});
+}
+
+// Obsługa żądań podpowiedzi
+function showHintRequest() {
+document.getElementById('hintRequest').style.display = 'block';
+addLog('hint', 'Gracze proszą o podpowiedź! (Gołąb)');
+showNotification('Gracze proszą o podpowiedź!', 'warning');
+setTimeout(hideHintRequest, 30000);
+}
+
+function hideHintRequest() {
+document.getElementById('hintRequest').style.display = 'none';
+}
+
+// System logów
+function addLog(type, message) {
+const logs = document.getElementById('logs');
+const timestamp = new Date().toLocaleTimeString();
+const logEntry = document.createElement('div');
+logEntry.className = `log-entry log-${type}`;
+const typeEmojis = {
+'game': '🎮',
+'hint': '🎵',
+'error': '❌',
+'esp32': '📡'
+};
+logEntry.innerHTML = `<strong>[${timestamp}] ${typeEmojis[type] || '📝'}</strong> ${escapeHtml(message)}`;
+logs.insertBefore(logEntry, logs.firstChild);
+while (logs.children.length > 100) {
+logs.removeChild(logs.lastChild);
+}
+}
+
+function clearLogs() {
+if (confirm('Czy na pewno chcesz wyczyścić logi?')) {
+document.getElementById('logs').innerHTML = '';
+addLog('esp32', 'Logi wyczyszczone');
+}
+}
+
+// System powiadomień
+function showNotification(message, type = 'success') {
+const existing = document.querySelector('.notification');
+if (existing) {
+existing.remove();
+}
+const notification = document.createElement('div');
+notification.className = `notification notification-${type}`;
+notification.textContent = message;
+document.body.appendChild(notification);
+setTimeout(() => {
+notification.classList.add('show');
+}, 100);
+setTimeout(() => {
+notification.classList.remove('show');
+setTimeout(() => {
+if (notification.parentNode) {
+notification.remove();
+}
+}, 300);
+}, 4000);
+}
+
+// Funkcje pomocnicze
+function formatDate(dateString) {
+const date = new Date(dateString);
+return date.toLocaleDateString('pl-PL') + ' ' + date.toLocaleTimeString('pl-PL', {hour: '2-digit', minute: '2-digit'});
+}
+
+function formatDuration(seconds) {
+const minutes = Math.floor(seconds / 60);
+const secs = seconds % 60;
+return `${minutes}:${secs.toString().padStart(2, '0')}`;
+}
+
+function escapeHtml(text) {
+const div = document.createElement('div');
+div.textContent = text;
+return div.innerHTML;
+}
+
+// Funkcja testowa - dodana na końcu
+function simulateHintRequest() {
+showHintRequest();
+playBeepInBrowser();
+}
+
+// Obsługa skrótów klawiszowych
+document.addEventListener('keydown', function(e) {
+if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
+switch(e.key) {
+case '1':
+e.preventDefault();
+showPanel('game');
+break;
+case '2':
+e.preventDefault();
+showPanel('puzzles');
+break;
+case '3':
+e.preventDefault();
+showPanel('history');
+break;
+case '4':
+e.preventDefault();
+showPanel('pricing');
+break;
+case '5':
+e.preventDefault();
+showPanel('config');
+break;
+case ' ':
+e.preventDefault();
+if (gameActive) {
+pauseGame();
+}
+break;
+}
+}
+if (e.key === 'Escape') {
+hideHintRequest();
+}
+});
+
+// Symulacja przycisk gołąb - TYLKO DO TESTÓW
+// Usuń tę funkcję w produkcji
+document.addEventListener('keydown', function(e) {
+if (e.key === 'h' && e.ctrlKey) {
+e.preventDefault();
+simulateHintRequest();
+}
+});
+
+console.log('🕊️ Panel Gołąb - Skróty klawiszowe:');
+console.log('Ctrl+1: Panel Gry');
+console.log('Ctrl+2: Zagadki');
+console.log('Ctrl+3: Historia');
+console.log('Ctrl+4: Cennik');
+console.log('Ctrl+5: Konfiguracja');
+console.log('Ctrl+Spacja: Pauza/Wznów grę');
+console.log('Ctrl+H: Symuluj żądanie podpowiedzi (TEST)');
+console.log('Escape: Ukryj żądanie podpowiedzi');
+console.log('🔊 NOWE: Suwak głośności audio (0-30)');
+console.log('🔄 NOWE: Osobne restarty Master/Slave/All');
+console.log('🧩 NOWE: Panel Zagadki z Walizka LOTTO');
+
+// ===== FUNKCJE ZAGADEK =====
+
+// Sprawdzanie statusu zagadek
+function checkPuzzleStatus() {
+fetch('/puzzle_status')
+.then(response => response.json())
+.then(data => {
+if (data.walizka) {
+puzzleStates.walizka = {...puzzleStates.walizka, ...data.walizka};
+updatePuzzleDisplay();
+}
+})
+.catch(error => {
+console.log('Brak połączenia z systemem zagadek');
+});
+}
+
+// Aktualizacja wyświetlania zagadki
+function updatePuzzleDisplay() {
+const walizka = puzzleStates.walizka;
+// Aktualizuj wskaźniki etapów
+updateStageIndicator('stage1Status', walizka.stage === 'WAITING_TAG1' ? 'active' : 
+    (walizka.stage === 'KEYPAD_ACTIVE' || walizka.stage === 'WAITING_TAG2' || walizka.stage === 'COMPLETED') ? 'completed' : 'waiting');
+updateStageIndicator('stage2Status', walizka.stage === 'KEYPAD_ACTIVE' ? 'active' : 
+    (walizka.stage === 'WAITING_TAG2' || walizka.stage === 'COMPLETED') ? 'completed' : 'waiting');
+updateStageIndicator('stage3Status', walizka.stage === 'WAITING_TAG2' ? 'active' : 
+    walizka.stage === 'COMPLETED' ? 'completed' : 'waiting');
+
+// Aktualizuj historię kodów
+updateCodesHistory();
+// Aktualizuj statystyki cyfr
+updateDigitStats();
+}
+
+// Aktualizacja wskaźnika etapu
+function updateStageIndicator(elementId, status) {
+const element = document.getElementById(elementId);
+if (element) {
+element.className = `stage-indicator stage-${status}`;
+}
+}
+
+// Aktualizacja historii kodów
+function updateCodesHistory() {
+const container = document.getElementById('codesHistory');
+if (!container) return;
+
+const codes = puzzleStates.walizka.codesHistory;
+if (codes.length === 0) {
+container.innerHTML = '<div style="color: #666; text-align: center; padding: 10px;">Brak prób</div>';
+return;
+}
+
+container.innerHTML = '';
+codes.slice(-10).reverse().forEach(entry => {
+const div = document.createElement('div');
+div.className = `code-entry ${entry.correct ? 'code-entry-correct' : ''}`;
+div.innerHTML = `
+<div class="code-entry-code">${entry.code}</div>
+<div class="code-entry-time">${entry.timestamp}</div>
+`;
+container.appendChild(div);
+});
+}
+
+// Aktualizacja statystyk cyfr
+function updateDigitStats() {
+const container = document.getElementById('digitStats');
+if (!container) return;
+
+const stats = puzzleStates.walizka.digitStats;
+const maxCount = Math.max(...Object.values(stats)) || 1;
+
+container.innerHTML = '';
+for (let digit = 0; digit <= 9; digit++) {
+const count = stats[digit] || 0;
+const percentage = (count / maxCount) * 100;
+    
+const div = document.createElement('div');
+div.className = 'digit-stat';
+div.innerHTML = `
+<div class="digit-stat-number">${digit}</div>
+<div class="digit-stat-bar">
+<div class="digit-stat-fill" style="width: ${percentage}%"></div>
+</div>
+<div class="digit-stat-count">${count}</div>
+`;
+container.appendChild(div);
+}
+}
+
+// Otwórz zamek
+function openLock() {
+if (!slave3Connected) {
+showNotification('Walizka nie jest połączona!', 'error');
+return;
+}
+
+fetch('/puzzle_command', {
+method: 'POST',
+headers: {
+'Content-Type': 'application/json',
+},
+body: JSON.stringify({
+puzzle: 'walizka',
+command: 'open_lock',
+timestamp: new Date().toISOString()
+})
+})
+.then(response => response.json())
+.then(data => {
+if (data.success) {
+showNotification('Zamek otwarto!', 'success');
+addLog('esp32', 'Walizka: Zamek otwarty przez panel');
+} else {
+showNotification('Błąd otwierania zamka!', 'error');
+}
+})
+.catch(error => {
+showNotification('Błąd komunikacji z ESP32!', 'error');
+});
+}
+
+// Reset zagadki
+function resetPuzzle(puzzleName) {
+if (!slave3Connected) {
+showNotification('Walizka nie jest połączona!', 'error');
+return;
+}
+
+if (confirm('Czy na pewno chcesz zresetować zagadkę?')) {
+fetch('/puzzle_command', {
+method: 'POST',
+headers: {
+'Content-Type': 'application/json',
+},
+body: JSON.stringify({
+puzzle: puzzleName,
+command: 'reset',
+timestamp: new Date().toISOString()
+})
+})
+.then(response => response.json())
+.then(data => {
+if (data.success) {
+// Reset lokalnego stanu
+puzzleStates.walizka = {
+stage: 'WAITING_TAG1',
+codesHistory: [],
+digitStats: {0:0, 1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0},
+relayState: false,
+lastUpdate: Date.now()
+};
+updatePuzzleDisplay();
+showNotification('Zagadka zresetowana!', 'success');
+addLog('esp32', 'Walizka: Reset przez panel');
+} else {
+showNotification('Błąd resetowania zagadki!', 'error');
+}
+})
+.catch(error => {
+showNotification('Błąd komunikacji z ESP32!', 'error');
+});
+}
+}
+
+// Restart Slave3 (Walizka)
+function restartSlave3() {
+if (confirm('Czy na pewno chcesz zrestartować Walizka?')) {
+fetch('/restart_slave3', {
+method: 'POST'
+})
+.then(response => response.json())
+.then(data => {
+if (data.success) {
+showNotification('Walizka zostanie zrestartowana...', 'warning');
+addLog('esp32', 'Restart Walizka');
+startCountdown('Restart Walizka', 3);
+} else {
+showNotification('Błąd restartu Walizka!', 'error');
+}
+})
+.catch(error => {
+showNotification('Błąd komunikacji z ESP32!', 'error');
+});
+}
+}
+</script>
+</body>
+</html>
