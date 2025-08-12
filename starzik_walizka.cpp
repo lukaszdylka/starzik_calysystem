@@ -1,3 +1,4 @@
+// WALIZKA.ino
 // --- Biblioteki ---
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
@@ -16,11 +17,21 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 // --- RFID ---
 #define RST_PIN 4
-#define SS_PIN 5
+#define SS_PIN  5
 MFRC522 rfid(SS_PIN, RST_PIN);
 
-// --- Przekaźnik ---
+// --- Przekaźnik lokalny (zamek w walizce) ---
 const int relayPin = 2;
+
+// --- KONTAKTRON ---
+const int kontaktronPin = 12;
+bool lastMagnetState = false;
+unsigned long lastMagnetCheck = 0;
+const unsigned long MAGNET_DEBOUNCE_DELAY = 100;
+
+// >>> DODANE: opóźnienie uzbrojenia etapu magnesu
+unsigned long magnetArmedAt = 0;
+const unsigned long MAGNET_ARM_DELAY = 300; // ms
 
 // --- Klawiatura ---
 const byte ROWS = 4;
@@ -40,45 +51,55 @@ HardwareSerial mySoftwareSerial(1);
 DFRobotDFPlayerMini myDFPlayer;
 const int busyPin = 34;
 
-// --- ESP-NOW Communication ---
-// MAC adres ESP32 Master
-uint8_t master_mac[] = {0x78, 0x1C, 0x3C, 0xF5, 0x82, 0xD8};
+// --- ESP-NOW adresy ---
+uint8_t master_mac[] = {0x78, 0x1C, 0x3C, 0xF5, 0x82, 0xD8};  // MASTER – panel www
+uint8_t device_mac[] = {0x78, 0x1C, 0x3C, 0xF5, 0x88, 0x88};   // SLAVE: podłoga z przekaźnikiem
 
-typedef struct {
-  String command;
-  String data;
-  unsigned long timestamp;
-} MasterMessage;
+// --- Tagi startowe ---
+const char* START_TAG_1 = "F1AAF703";
+const char* START_TAG_2 = "E3BF25E2";
 
-// --- Zmienne globalne ---
-String correctCode = "81522252839";
+// --- Numer pliku po wybraniu „skrytki” (np. pusty dźwięk) ---
+const uint16_t TRIGGER_SOUND_TRACK = 7; // => 0007.mp3
+
+// --- Zmienne logiki ---
+String correctCode = "010716363847";
 String enteredCode = "";
 bool tag1Used = false;
-bool tag2Allowed = false;
-bool tag2Used = false;
 
-// Komunikacja z Master
+// MAGNES
+bool magnetAllowed = false;
+bool magnetUsed = false;
+
+// JĘZYK -> po pliku "Podaj nr skrytki" i wpis 53 (wielokrotnie)
+bool languageChosen = false;
+bool waitingForCompartment = false;  // tryb wprowadzania numeru skrytki
+String compartmentInput = "";        // bufor cyfr skrytki
+
+// Master status
 bool masterConnected = false;
 unsigned long lastMasterHeartbeat = 0;
 const unsigned long HEARTBEAT_TIMEOUT = 30000;
 
-// Statystyki dla panelu
-String codesHistory[20]; // Ostatnie 20 kodów
+// Statystyki
+String codesHistory[20];
 int codesHistoryCount = 0;
-int digitStats[10] = {0}; // Statystyki cyfr 0-9
+int digitStats[10] = {0};
 String currentStage = "WAITING_TAG1";
 unsigned long stageStartTime = 0;
 
-// Debouncing klawiatury
+// Debounce klawiatury
 unsigned long lastKeyTime = 0;
-const unsigned long KEY_DEBOUNCE_DELAY = 200; // 200ms między klawiszami
+const unsigned long KEY_DEBOUNCE_DELAY = 200;
 char lastKey = 0;
 
-// --- Deklaracje funkcji ---
+// --- Deklaracje ---
 void setupESPNow();
 void waitForDFPlayer();
-bool checkForTag(String targetUID);
+bool readUIDIfPresent(String &uidHex);
+bool checkMagnet();
 void sendToMaster(String command, String data);
+bool sendToPeer(const uint8_t mac[6], const String& command, const String& data);
 void sendStatusUpdate();
 void sendCodeStatistics(String code, bool correct);
 void resetPuzzle();
@@ -92,12 +113,14 @@ void checkMasterConnection();
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status);
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len);
 
+// --- Implementacja ---
 void setup() {
   Serial.begin(115200);
   mySoftwareSerial.begin(9600, SERIAL_8N1, 16, 17);
-  
+
   pinMode(relayPin, OUTPUT);
   pinMode(busyPin, INPUT);
+  pinMode(kontaktronPin, INPUT_PULLUP);
   digitalWrite(relayPin, LOW);
 
   lcd.init();
@@ -111,122 +134,119 @@ void setup() {
     Serial.println("Nie można połączyć z DFPlayerem");
   } else {
     Serial.println("DFPlayer połączony");
-    myDFPlayer.volume(25);
+    myDFPlayer.volume(20);
   }
 
-  // Inicjalizacja WiFi dla ESP-NOW
   WiFi.mode(WIFI_STA);
   Serial.print("MAC Address Walizka: ");
   Serial.println(WiFi.macAddress());
 
   setupESPNow();
-  
-  // Inicjalizacja statystyk
+
   stageStartTime = millis();
-  
-  Serial.println("🧳 Walizka LOTTO gotowa!");
-  
-  // Wyślij początkowy status
+  Serial.println("🧳 Walizka gotowa!");
+  Serial.println("🧲 Kontaktron pin: " + String(kontaktronPin));
+
   sendStatusUpdate();
 }
 
 void loop() {
   checkMasterConnection();
-  
-  // === ETAP 1: Oczekiwanie na Tag 1 ===
-  if (!tag1Used && checkForTag("F1AAF73")) {
-    Serial.println("📍 Tag 1 wykryty!");
-    
-    myDFPlayer.play(1);
-    delay(200); // Bezpieczny delay
-    
-    // Otwórz zamek
-    digitalWrite(relayPin, HIGH);
-    delay(5000);
-    digitalWrite(relayPin, LOW);
-    
-    // Przejdź do etapu klawiatury
-    tag1Used = true;
-    updateStage("KEYPAD_ACTIVE");
-    
-    lcd.backlight();
-    lcd.clear();
-    lcd.setCursor(0, 0);
-    lcd.print("Liczby LOTTO + #:");
-    
-    sendToMaster("tag1_detected", "F1AAF73");
-    sendStatusUpdate();
+
+  // === ETAP 1: Start po TAGU (dowolny z 2 UID) ===
+  if (!tag1Used) {
+    String uid;
+    if (readUIDIfPresent(uid)) {
+      Serial.print("📡 Odczytano tag: "); Serial.println(uid);
+      if (uid == START_TAG_1 || uid == START_TAG_2) {
+        Serial.println("📍 Tag startowy OK");
+
+        myDFPlayer.play(1);
+        delay(200);
+
+        // Otwórz lokalną zworę
+        digitalWrite(relayPin, HIGH);
+        delay(5000);
+        digitalWrite(relayPin, LOW);
+
+        tag1Used = true;
+        updateStage("KEYPAD_ACTIVE");
+
+        lcd.backlight();
+        lcd.clear();
+        lcd.setCursor(0, 0);
+        lcd.print("Liczby LOTTO + #:");
+
+        sendToMaster("tag1_detected", uid);
+        sendStatusUpdate();
+      }
+    }
   }
 
-  // === ETAP 2: Wprowadzanie kodu ===
-  if (tag1Used && !tag2Allowed) {
+  // === ETAP 2: Kod ===
+  if (tag1Used && !magnetAllowed) {
     char key = keypad.getKey();
     if (key) {
       myDFPlayer.play(2);
       waitForDFPlayer();
-      
-      if (key >= '0' && key <= '9' && enteredCode.length() < 11) {
-        // Dodaj cyfrę
+
+      if (key >= '0' && key <= '9' && enteredCode.length() < 12) {
         enteredCode += key;
         lcd.setCursor(enteredCode.length() - 1, 1);
         lcd.print(key);
-        Serial.println("Wprowadzono cyfrę: " + String(key));
-        
-        // Krótki beep bez blokowania
+        Serial.println("Wprowadzono: " + String(key));
         myDFPlayer.play(2);
-        delay(100); // Krótki delay zamiast waitForDFPlayer
-        
+        delay(100);
+
       } else if (key == '*') {
-        // Usuń ostatnią cyfrę
         if (enteredCode.length() > 0) {
           enteredCode.remove(enteredCode.length() - 1);
           lcd.setCursor(enteredCode.length(), 1);
           lcd.print(" ");
           lcd.setCursor(enteredCode.length(), 1);
         }
-        
+
       } else if (key == '#') {
-        // Sprawdź kod
         if (enteredCode.length() > 0) {
-          Serial.println("Sprawdzanie kodu: " + enteredCode);
-          
+          Serial.println("Sprawdzanie: " + enteredCode);
+
           bool isCorrect = (enteredCode == correctCode);
-          String codeToSend = enteredCode; // Zapisz kod przed resetem!
-          
-          // Zapisz kod do statystyk
+          String codeToSend = enteredCode;
+
           addCodeToHistory(enteredCode, isCorrect);
           updateDigitStatistics(enteredCode);
           sendCodeStatistics(enteredCode, isCorrect);
-          
+
           if (isCorrect) {
-            // Kod poprawny
-            tag2Allowed = true;
-            updateStage("WAITING_TAG2");
-            
-            Serial.println("✅ Kod poprawny!");
+            magnetAllowed = true;
+            updateStage("WAITING_MAGNET");
+
+            // >>> DODANE: uzbrój detekcję — zapamiętaj stan w chwili wejścia w etap
+            lastMagnetState = !digitalRead(kontaktronPin);
+            magnetArmedAt = millis();
+            Serial.println(String("ARM MAGNET, initial=") + (lastMagnetState ? "MAGNES" : "BRAK"));
+
+            Serial.println("✅ Kod OK – czekam na magnes");
             myDFPlayer.play(3);
-            delay(200); // Bezpieczny delay zamiast waitForDFPlayer
-            
+            delay(200);
+
             lcd.clear();
-            lcd.print("Przyloz tag 2");
-            
+            lcd.print("ZEFLIK");
+
             sendToMaster("code_correct", codeToSend);
             sendStatusUpdate();
-            
+
           } else {
-            // Kod niepoprawny
-            Serial.println("❌ Błędny kod!");
+            Serial.println("❌ Zly kod");
             myDFPlayer.play(4);
-            delay(200); // Bezpieczny delay zamiast waitForDFPlayer
-            
+            delay(200);
+
             lcd.clear();
-            lcd.print("Numery niepoprawne");
+            lcd.print("Zle numery");
             delay(2000);
-            
-            // Wyślij błędny kod PRZED resetem
+
             sendToMaster("code_incorrect", codeToSend);
-            
-            // Dopiero teraz reset wprowadzania
+
             enteredCode = "";
             lcd.clear();
             lcd.setCursor(0, 0);
@@ -237,54 +257,164 @@ void loop() {
     }
   }
 
-  // === ETAP 3: Oczekiwanie na Tag 2 ===
-  if (tag2Allowed && !tag2Used && checkForTag("E3BF25E2")) {
-    Serial.println("📍 Tag 2 wykryty!");
-    
-    tag2Used = true;
-    updateStage("COMPLETED");
-    
+  // === ETAP 3: Magnes ===
+  if (magnetAllowed && !magnetUsed && checkMagnet()) {
+    Serial.println("🧲 Magnes wykryty!");
+    magnetUsed = true;
+    updateStage("LANGUAGE_SELECT");
+
     lcd.clear();
     lcd.print("1 - POLSKI");
     lcd.setCursor(0, 1);
     lcd.print("2 - SLASKI");
-    
-    sendToMaster("tag2_detected", "E3BF25E2");
+
+    sendToMaster("magnet_detected", "kontaktron_activated");
     sendStatusUpdate();
   }
 
-  // === ETAP 4: Wybór języka ===
-  if (tag2Used) {
+  // === ETAP 4: Wybór języka -> po pliku: "Podaj nr skrytki" ===
+  if (magnetUsed && !languageChosen) {
     char key = keypad.getKey();
-    
-    // Debouncing dla wyboru języka
+
     if (key && (millis() - lastKeyTime > KEY_DEBOUNCE_DELAY || key != lastKey)) {
       lastKeyTime = millis();
       lastKey = key;
-      
+
       if (key == '1') {
-        Serial.println("🇵🇱 Wybrano język POLSKI");
+        Serial.println("🇵🇱 Polski");
         myDFPlayer.play(5);
-        delay(200); // Bezpieczny delay
+        delay(200);
         sendToMaster("language_selected", "POLSKI");
-        
+        languageChosen = true;
+
       } else if (key == '2') {
-        Serial.println("🏴 Wybrano język ŚLĄSKI");
+        Serial.println("🏴 Śląski");
         myDFPlayer.play(6);
-        delay(200); // Bezpieczny delay
+        delay(200);
         sendToMaster("language_selected", "SLASKI");
+        languageChosen = true;
+      }
+
+      if (languageChosen) {
+        // czekaj aż skończy się plik językowy
+        waitForDFPlayer();
+
+        // komunikat do gracza
+        lcd.clear();
+        lcd.setCursor(0,0); lcd.print("Podaj nr skrytki");
+        lcd.setCursor(0,1); lcd.print("                ");
+
+        compartmentInput = "";
+        waitingForCompartment = true;     // od teraz przyjmujemy cyfry skrytki (wielokrotnie)
+        updateStage("WAITING_COMPARTMENT");
+        sendStatusUpdate();
       }
     }
   }
-  
-  // Wysyłaj heartbeat co 15 sekund
+
+  // === ETAP 5: Wprowadzanie numeru skrytki (wymagane 2 cyfry: "53") ===
+  if (waitingForCompartment) {
+    char k = keypad.getKey();
+    if (k && (millis() - lastKeyTime > KEY_DEBOUNCE_DELAY || k != lastKey)) {
+      lastKeyTime = millis();
+      lastKey = k;
+
+      if (k >= '0' && k <= '9') {
+        if (compartmentInput.length() < 2) {
+          compartmentInput += k;
+
+          // pokaż wpisywane cyfry (na drugiej linii)
+          lcd.setCursor(0,1);
+          if (compartmentInput.length() == 1) {
+            lcd.print(String(k) + "               ");
+          } else {
+            lcd.print(compartmentInput + "              ");
+          }
+        }
+
+        if (compartmentInput.length() == 2) {
+          if (compartmentInput == "53") {
+            // poprawny numer skrytki -> wyślij do SLAVE + zagraj stały plik
+            Serial.println("🔓 Skrytka 53 -> relay_on (SLAVE) + audio");
+            bool ok = sendToPeer(device_mac, "relay_on", "latch");
+            myDFPlayer.play(TRIGGER_SOUND_TRACK);
+
+            // krótki feedback
+            lcd.setCursor(0,1);
+            lcd.print(ok ? "OK              " : "Blad wysylki    ");
+          } else {
+            // zły numer — krótki komunikat
+            Serial.println("❌ Zly nr skrytki");
+            lcd.setCursor(0,1);
+            lcd.print("Zly numer       ");
+            myDFPlayer.play(TRIGGER_SOUND_TRACK); // jeśli nie chcesz dźwięku przy błędzie, usuń tę linię
+          }
+
+          // po chwili wróć do wpisywania kolejnego numeru (wielokrotnie, aż do resetu)
+          delay(600);
+          compartmentInput = "";
+          lcd.setCursor(0,0); lcd.print("Podaj nr skrytki");
+          lcd.setCursor(0,1); lcd.print("                ");
+          updateStage("WAITING_COMPARTMENT");
+          sendStatusUpdate();
+        }
+      } else if (k == '*') {
+        // kasuj ostatnią cyfrę
+        if (compartmentInput.length() > 0) {
+          compartmentInput.remove(compartmentInput.length() - 1);
+          lcd.setCursor(0,1);
+          lcd.print((compartmentInput.length() ? compartmentInput : String(" ")) + "               ");
+        }
+      } else if (k == '#') {
+        // ignorujemy '#' – niepotrzebny tu ENTER
+      }
+    }
+  }
+
+  // Heartbeat do MASTER co 15 s
   static unsigned long lastHeartbeat = 0;
   if (millis() - lastHeartbeat > 15000) {
     sendHeartbeatToMaster();
     lastHeartbeat = millis();
   }
-  
+
   delay(50);
+}
+
+// --- Pomocnicze ---
+// Czyta kartę jeśli jest – zwraca true i wpisuje UID (UPPERCASE, bez spacji)
+bool readUIDIfPresent(String &uidHex) {
+  if (!rfid.PICC_IsNewCardPresent() || !rfid.PICC_ReadCardSerial()) return false;
+
+  uidHex = "";
+  for (byte i = 0; i < rfid.uid.size; i++) {
+    if (rfid.uid.uidByte[i] < 0x10) uidHex += "0";
+    uidHex += String(rfid.uid.uidByte[i], HEX);
+  }
+  uidHex.toUpperCase();
+
+  rfid.PICC_HaltA();
+  rfid.PCD_StopCrypto1();
+  return true;
+}
+
+bool checkMagnet() {
+  // >>> DODANE: krótki czas uzbrojenia etapu magnesu
+  if (millis() - magnetArmedAt < MAGNET_ARM_DELAY) return false;
+
+  // Debounce
+  if (millis() - lastMagnetCheck < MAGNET_DEBOUNCE_DELAY) return false;
+  lastMagnetCheck = millis();
+
+  bool currentMagnetState = !digitalRead(kontaktronPin); // pullup -> LOW = magnes
+  // wykryj zbocze: BRAK->MAGNES
+  if (currentMagnetState && !lastMagnetState) {
+    lastMagnetState = currentMagnetState;
+    Serial.println("🧲 Kontaktron: zblizenie!");
+    return true;
+  }
+  lastMagnetState = currentMagnetState;
+  return false;
 }
 
 void setupESPNow() {
@@ -300,19 +430,23 @@ void setupESPNow() {
   esp_now_register_send_cb(OnDataSent);
   esp_now_register_recv_cb(OnDataRecv);
 
-  esp_now_peer_info_t peerInfo;
-  memset(&peerInfo, 0, sizeof(peerInfo));
-  memcpy(peerInfo.peer_addr, master_mac, 6);
-  peerInfo.channel = 0;
-  peerInfo.encrypt = false;
-  peerInfo.ifidx = WIFI_IF_STA;
-
-  if (esp_now_add_peer(&peerInfo) != ESP_OK) {
-    Serial.println("Błąd dodawania Master peer");
-    return;
+  // MASTER (dla statusów)
+  {
+    esp_now_peer_info_t p = {};
+    memcpy(p.peer_addr, master_mac, 6);
+    p.channel = 0; p.encrypt = false; p.ifidx = WIFI_IF_STA;
+    if (esp_now_add_peer(&p) != ESP_OK) Serial.println("Błąd dodawania Master peer");
+    else Serial.println("ESP-NOW: dodano MASTER");
   }
-  
-  Serial.println("ESP-NOW skonfigurowane dla Master");
+
+  // SLAVE: podłoga z przekaźnikiem
+  {
+    esp_now_peer_info_t p = {};
+    memcpy(p.peer_addr, device_mac, 6);
+    p.channel = 0; p.encrypt = false; p.ifidx = WIFI_IF_STA;
+    if (esp_now_add_peer(&p) != ESP_OK) Serial.println("Błąd dodawania RELAY peer");
+    else Serial.println("ESP-NOW: dodano RELAY (podloga)");
+  }
 }
 
 void waitForDFPlayer() {
@@ -321,23 +455,21 @@ void waitForDFPlayer() {
   }
 }
 
-bool checkForTag(String targetUID) {
-  if (!rfid.PICC_IsNewCardPresent() || !rfid.PICC_ReadCardSerial()) return false;
+bool sendToPeer(const uint8_t mac[6], const String& command, const String& data) {
+  String serialized = command + "|" + data + "|" + String(millis());
+  uint8_t message[250];
+  size_t len = serialized.length();
+  if (len > 249) len = 249;
+  serialized.getBytes(message, len + 1);
 
-  String readUID = "";
-  for (byte i = 0; i < rfid.uid.size; i++) {
-    readUID += String(rfid.uid.uidByte[i], HEX);
+  esp_err_t res = esp_now_send(mac, message, len);
+  if (res == ESP_OK) {
+    Serial.println("📤 Wysłano (peer): " + command + " | " + data);
+    return true;
+  } else {
+    Serial.println("❌ ESP-NOW send error: " + String(res));
+    return false;
   }
-  readUID.toUpperCase();
-  targetUID.toUpperCase();
-  
-  Serial.print("📡 Odczytano tag: ");
-  Serial.println(readUID);
-
-  rfid.PICC_HaltA();
-  rfid.PCD_StopCrypto1();
-
-  return readUID == targetUID;
 }
 
 void sendToMaster(String command, String data) {
@@ -346,42 +478,34 @@ void sendToMaster(String command, String data) {
   size_t len = serialized.length();
   if (len > 249) len = 249;
   serialized.getBytes(message, len + 1);
-  
+
   esp_err_t result = esp_now_send(master_mac, message, len);
-  if (result == ESP_OK) {
-    Serial.println("📤 Wysłano do Master: " + command);
-  } else {
-    Serial.println("❌ Błąd wysyłania do Master");
-  }
+  if (result == ESP_OK) Serial.println("📤 Wysłano do Master: " + command);
+  else Serial.println("❌ Błąd wysyłania do Master");
 }
 
 void sendStatusUpdate() {
-  // Tworzenie JSON ze statusem
   DynamicJsonDocument doc(1024);
   doc["stage"] = currentStage;
   doc["tag1_used"] = tag1Used;
-  doc["tag2_allowed"] = tag2Allowed;
-  doc["tag2_used"] = tag2Used;
-  doc["relay_state"] = digitalRead(relayPin);
+  doc["magnet_allowed"] = magnetAllowed;
+  doc["magnet_used"] = magnetUsed;
+  doc["magnet_state"] = !digitalRead(kontaktronPin);
+  doc["relay_state"] = (bool)digitalRead(relayPin);
   doc["entered_code_length"] = enteredCode.length();
   doc["stage_time"] = millis() - stageStartTime;
-  
-  // Historia kodów (ostatnie 5)
+  doc["language_chosen"] = languageChosen;
+  doc["waiting_for_compartment"] = waitingForCompartment;
+
+  // historia ostatnich 5 kodów
   JsonArray codes = doc.createNestedArray("codes_history");
   int start = max(0, codesHistoryCount - 5);
-  for (int i = start; i < codesHistoryCount; i++) {
-    codes.add(codesHistory[i]);
-  }
-  
-  // Statystyki cyfr
+  for (int i = start; i < codesHistoryCount; i++) codes.add(codesHistory[i]);
+
   JsonObject stats = doc.createNestedObject("digit_stats");
-  for (int i = 0; i < 10; i++) {
-    stats[String(i)] = digitStats[i];
-  }
-  
-  String jsonString;
-  serializeJson(doc, jsonString);
-  
+  for (int i = 0; i < 10; i++) stats[String(i)] = digitStats[i];
+
+  String jsonString; serializeJson(doc, jsonString);
   sendToMaster("status_update", jsonString);
 }
 
@@ -391,33 +515,23 @@ void sendCodeStatistics(String code, bool correct) {
   doc["correct"] = correct;
   doc["timestamp"] = millis();
   doc["stage_time"] = millis() - stageStartTime;
-  
-  String jsonString;
-  serializeJson(doc, jsonString);
-  
+  String jsonString; serializeJson(doc, jsonString);
   sendToMaster("code_entered", jsonString);
 }
 
 void addCodeToHistory(String code, bool correct) {
   if (codesHistoryCount >= 20) {
-    // Przesuń historię
-    for (int i = 0; i < 19; i++) {
-      codesHistory[i] = codesHistory[i + 1];
-    }
+    for (int i = 0; i < 19; i++) codesHistory[i] = codesHistory[i + 1];
     codesHistoryCount = 19;
   }
-  
-  // Format: "1234|1|1634567890" (kod|poprawny|timestamp)
   codesHistory[codesHistoryCount] = code + "|" + (correct ? "1" : "0") + "|" + String(millis());
   codesHistoryCount++;
 }
 
 void updateDigitStatistics(String code) {
   for (int i = 0; i < code.length(); i++) {
-    char digit = code.charAt(i);
-    if (digit >= '0' && digit <= '9') {
-      digitStats[digit - '0']++;
-    }
+    char d = code.charAt(i);
+    if (d >= '0' && d <= '9') digitStats[d - '0']++;
   }
 }
 
@@ -428,60 +542,32 @@ void updateStage(String newStage) {
 }
 
 void resetPuzzle() {
-  Serial.println("🔄 Reset zagadki przez Master");
-  
-  // Reset wszystkich zmiennych
-  enteredCode = "";
-  tag1Used = false;
-  tag2Allowed = false;
-  tag2Used = false;
-  currentStage = "WAITING_TAG1";
-  stageStartTime = millis();
-  
-  // Reset hardware
+  Serial.println("🔄 Reset zagadki");
+  enteredCode = ""; tag1Used = false;
+  magnetAllowed = false; magnetUsed = false;
+  languageChosen = false; waitingForCompartment = false; compartmentInput = "";
+  currentStage = "WAITING_TAG1"; stageStartTime = millis();
   digitalWrite(relayPin, LOW);
-  lcd.noBacklight();
-  lcd.clear();
-  
-  // Reset statystyk (opcjonalnie - możesz zachować)
-  // for (int i = 0; i < 10; i++) digitStats[i] = 0;
-  // codesHistoryCount = 0;
-  
+  lcd.noBacklight(); lcd.clear();
   sendStatusUpdate();
-  Serial.println("✅ Zagadka zresetowana");
+  Serial.println("✅ Zresetowano");
 }
 
 void openLockFromPanel() {
-  Serial.println("🔓 Otwieranie zamka przez panel");
-  digitalWrite(relayPin, HIGH);
-  delay(5000);
-  digitalWrite(relayPin, LOW);
+  Serial.println("🔓 Otwieranie zamka (panel)");
+  digitalWrite(relayPin, HIGH); delay(5000); digitalWrite(relayPin, LOW);
   sendToMaster("lock_opened", "panel_command");
 }
 
 void handleMasterMessage(String command, String data) {
-  Serial.println("🎛️ Master komenda: " + command + ", dane: " + data);
-  
-  if (command == "reset_puzzle") {
-    resetPuzzle();
-  } else if (command == "open_lock") {
-    openLockFromPanel();
-  } else if (command == "get_status") {
-    sendStatusUpdate();
-  } else if (command == "restart") {
-    Serial.println("🔄 Restart żądany przez Master");
-    delay(1000);
-    ESP.restart();
-  } else if (command == "heartbeat") {
-    Serial.println("💓 Heartbeat od Master");
-  } else {
-    Serial.println("❓ Nieznana komenda od Master: " + command);
-  }
+  Serial.println("🎛️ Master: " + command + " | " + data);
+  if (command == "reset_puzzle") resetPuzzle();
+  else if (command == "open_lock") openLockFromPanel();
+  else if (command == "get_status") sendStatusUpdate();
+  else if (command == "restart") { Serial.println("🔄 Restart"); delay(1000); ESP.restart(); }
 }
 
-void sendHeartbeatToMaster() {
-  sendToMaster("heartbeat", "walizka_alive");
-}
+void sendHeartbeatToMaster() { sendToMaster("heartbeat", "walizka_alive"); }
 
 void checkMasterConnection() {
   if (masterConnected && (millis() - lastMasterHeartbeat > HEARTBEAT_TIMEOUT)) {
@@ -491,28 +577,30 @@ void checkMasterConnection() {
 }
 
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
-  if (status != ESP_NOW_SEND_SUCCESS) {
-    Serial.println("❌ ESP-NOW: Błąd wysyłania do Master");
-  }
+  if (status != ESP_NOW_SEND_SUCCESS) Serial.println("❌ ESP-NOW: błąd wysyłania (walizka)");
 }
 
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
-  String receivedData = "";
-  for (int i = 0; i < len; i++) {
-    receivedData += (char)incomingData[i];
+  // filtrujemy nadawcę: tylko MASTER jest sterujący
+  String payload; payload.reserve(len+1);
+  for (int i = 0; i < len; i++) payload += (char)incomingData[i];
+
+  if (memcmp(mac, master_mac, 6) == 0) {
+    int p1 = payload.indexOf('|');
+    int p2 = payload.indexOf('|', p1 + 1);
+    if (p1 > 0 && p2 > 0) {
+      String command = payload.substring(0, p1);
+      String data    = payload.substring(p1 + 1, p2);
+      handleMasterMessage(command, data);
+    }
+    masterConnected = true;
+    lastMasterHeartbeat = millis();
+  } else {
+    // np. wiadomości od innych ESP — na razie tylko log
+    Serial.print("📡 Otrzymano (walizka) od innego MAC: ");
+    char macbuf[18];
+    snprintf(macbuf, sizeof(macbuf), "%02X:%02X:%02X:%02X:%02X:%02X",
+             mac[0],mac[1],mac[2],mac[3],mac[4],mac[5]);
+    Serial.print(macbuf); Serial.print(" : "); Serial.println(payload);
   }
-  
-  Serial.println("📡 Otrzymano od Master: " + receivedData);
-  
-  int firstPipe = receivedData.indexOf('|');
-  int secondPipe = receivedData.indexOf('|', firstPipe + 1);
-  
-  if (firstPipe > 0 && secondPipe > 0) {
-    String command = receivedData.substring(0, firstPipe);
-    String data = receivedData.substring(firstPipe + 1, secondPipe);
-    handleMasterMessage(command, data);
-  }
-  
-  masterConnected = true;
-  lastMasterHeartbeat = millis();
 }
