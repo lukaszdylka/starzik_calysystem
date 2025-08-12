@@ -16,6 +16,9 @@
 // --- LEDy ---
 #define LED_PIN 21
 
+// --- Przycisk aktywujący ---
+#define BUTTON_PIN 13
+
 // --- DFPlayer ---
 #define DF_RX 16
 #define DF_TX 17
@@ -27,7 +30,8 @@ DFRobotDFPlayerMini dfplayer;
 bool sensor1_triggered = false;
 bool sensor2_triggered = false;
 bool effect_started = false;
-bool wait_for_final = false;
+bool puzzle_active = false;
+bool button_was_pressed = false;
 unsigned long last_sound_time = 0;
 
 void shortVibration() {
@@ -81,8 +85,10 @@ void triggerFinalVibrationEffect() {
 
 void setup() {
   Serial.begin(115200);
+
   pinMode(SENSOR1_PIN, INPUT_PULLUP);
   pinMode(SENSOR2_PIN, INPUT_PULLUP);
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
 
   pinMode(RELAY_PIN, OUTPUT);
   digitalWrite(RELAY_PIN, LOW);
@@ -93,7 +99,7 @@ void setup() {
   digitalWrite(MOTOR2_PIN, LOW);
 
   pinMode(LED_PIN, OUTPUT);
-  digitalWrite(LED_PIN, HIGH);
+  digitalWrite(LED_PIN, LOW); // LED wyłączony do aktywacji
 
   pinMode(DF_BUSY, INPUT_PULLUP);
   dfSerial.begin(9600, SERIAL_8N1, DF_RX, DF_TX);
@@ -103,10 +109,30 @@ void setup() {
     dfplayer.volume(25);
   }
 
-  Serial.println("System gotowy – czekam na zwarcia");
+  Serial.println("System gotowy – czekam na wciśnięcie przycisku.");
 }
 
 void loop() {
+  // --- Aktywacja zagadki przez przycisk ---
+  if (!puzzle_active) {
+    bool button_state = digitalRead(BUTTON_PIN);
+
+    if (button_state == LOW) {
+      button_was_pressed = true;
+    }
+
+    if (button_was_pressed && button_state == HIGH) {
+      puzzle_active = true;
+      digitalWrite(LED_PIN, HIGH);
+      Serial.println("Zagadka aktywowana przyciskiem.");
+      delay(300);
+    }
+
+    delay(20);
+    return;
+  }
+
+  // --- Obsługa blaszek ---
   if (digitalRead(SENSOR1_PIN) == LOW && !sensor1_triggered) {
     sensor1_triggered = true;
     Serial.println("Zwarcie: blaszka 1");
@@ -125,6 +151,7 @@ void loop() {
     last_sound_time = millis();
   }
 
+  // --- Efekt końcowy ---
   if (sensor1_triggered && sensor2_triggered && !effect_started && millis() - last_sound_time > 3500) {
     effect_started = true;
     Serial.println("Start efektu końcowego (chaos + przekaźnik + dźwięk 3)");
