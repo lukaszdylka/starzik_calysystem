@@ -1,0 +1,44 @@
+#include <WiFi.h>
+#include <esp_now.h>
+
+const int RELAY_PIN = 4;              // <- Twój pin IN
+const bool RELAY_ACTIVE_HIGH = false;  // HL-51 zwykle active-LOW
+
+void setRelay(bool on){
+  pinMode(RELAY_PIN, OUTPUT);
+  digitalWrite(RELAY_PIN, RELAY_ACTIVE_HIGH ? (on?HIGH:LOW) : (on?LOW:HIGH));
+}
+
+void onDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
+  String payload; payload.reserve(len+1);
+  for (int i=0;i<len;i++) payload += (char)incomingData[i];
+  Serial.print("[SLAVE] RX: "); Serial.println(payload);
+
+  int p1 = payload.indexOf('|');
+  int p2 = payload.indexOf('|', p1 + 1);
+  if (p1 <= 0 || p2 <= 0) return;
+
+  String cmd  = payload.substring(0, p1);
+  // String data = payload.substring(p1 + 1, p2); // niepotrzebne teraz
+
+  if (cmd == "relay_on") {
+    setRelay(true);                   // ZAŁĄCZ NA STAŁE do resetu
+    Serial.println("[SLAVE] RELAY = ON (latched)");
+  }
+}
+
+void setup() {
+  Serial.begin(115200);
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
+  setRelay(false);                    // startowo wyłączony
+
+  if (esp_now_init() != ESP_OK) {
+    Serial.println("esp_now_init FAIL"); while(true) delay(1000);
+  }
+  esp_now_register_recv_cb(onDataRecv);
+
+  Serial.print("[SLAVE] MAC: "); Serial.println(WiFi.macAddress());
+  Serial.println("[SLAVE] Ready");
+}
+void loop(){}
